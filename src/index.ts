@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -12,6 +12,7 @@ import { registerProduct } from "./commands/product.js";
 import { registerSmokeTest } from "./commands/smoke-test.js";
 import { registerSubscription } from "./commands/subscription.js";
 import { registerWebhook } from "./commands/webhook.js";
+import { classifyError } from "./exit-codes.js";
 
 async function main(): Promise<void> {
   const packageJson = await readPackageJson();
@@ -27,6 +28,15 @@ async function main(): Promise<void> {
     .option("--base-url <url>", "Override Clink API base URL")
     .option("--api-key <value>", "Secret key literal or env:CLINK_SECRET_KEY")
     .option("--dry-run", "Print request metadata instead of executing Clink API writes");
+
+  program.exitOverride();
+  program.configureOutput({
+    writeErr: (text) => {
+      if (!process.argv.includes("--json")) {
+        process.stderr.write(text);
+      }
+    },
+  });
 
   registerAuth(program);
   registerInit(program);
@@ -54,13 +64,18 @@ async function readPackageJson(): Promise<{ version: string }> {
 }
 
 main().catch((error: unknown) => {
+  if (error instanceof CommanderError && error.exitCode === 0) {
+    process.exitCode = 0;
+    return;
+  }
+
   const message = error instanceof Error ? error.message : String(error);
+  const exitCode = classifyError(error);
   const wantsJson = process.argv.includes("--json");
   if (wantsJson) {
-    console.error(JSON.stringify({ ok: false, error: message }, null, 2));
+    console.error(JSON.stringify({ ok: false, error: message, exitCode }, null, 2));
   } else {
     console.error(`Error: ${message}`);
   }
-  process.exitCode = 1;
+  process.exitCode = exitCode;
 });
-

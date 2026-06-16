@@ -66,3 +66,13 @@ All commands accept `--json` so coding agents can parse results reliably:
 clink checkout create ... --json
 ```
 
+## Project Docs
+
+- [Requirements](docs/requirements.md)
+- [Roadmap](docs/roadmap.md)
+- [Agent workflow](docs/agent-workflow.md)
+- [Exit codes](docs/exit-codes.md)
+
+## Agent Skill
+
+This repository includes `SKILL.md` so compatible coding agents can understand the CLI architecture, safety rules, and quality bar before modifying the project.
