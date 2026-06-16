@@ -58,6 +58,50 @@ clink doctor
 clink smoke-test
 ```
 
+## Local Webhook Development
+
+The webhook tools do not require Dashboard setup or live Clink API access. Use a local signing key such as `env:CLINK_WEBHOOK_SIGNING_KEY` or a throwaway value like `test_secret`.
+
+Generate a stable fixture:
+
+```bash
+clink webhook fixture invoice.paid --out ./fixtures/invoice-paid.json --json
+```
+
+Sign the exact raw file contents:
+
+```bash
+clink webhook sign --body-file ./fixtures/invoice-paid.json --secret env:CLINK_WEBHOOK_SIGNING_KEY --json
+```
+
+Verify the raw file contents, timestamp, and signature before accepting a local webhook:
+
+```bash
+clink webhook verify --body-file ./fixtures/invoice-paid.json --secret env:CLINK_WEBHOOK_SIGNING_KEY --timestamp <timestamp-from-sign> --signature <signature-from-sign> --tolerance-seconds 300 --json
+```
+
+`clink webhook verify` rejects timestamps outside the tolerance window. The default tolerance is 300 seconds. The signature is HMAC SHA-256 over:
+
+```text
+X-Clink-Timestamp + "." + rawBody
+```
+
+Supported fixtures:
+
+```text
+session.complete
+session.expired
+order.created
+order.succeeded
+order.failed
+subscription.created
+subscription.activated
+subscription.past_due
+invoice.open
+invoice.paid
+invoice.void
+```
+
 ## AI-Friendly Output
 
 All commands accept `--json` so coding agents can parse results reliably:

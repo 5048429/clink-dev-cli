@@ -147,7 +147,9 @@ Acceptance checks:
 npm run check
 npm run build
 node dist/index.js webhook simulate invoice.paid --secret test_secret --json
-node dist/index.js webhook sign --body-file ./some-fixture.json --secret test_secret --json
+node dist/index.js webhook fixture order.succeeded --out ./tmp-order.json --json
+node dist/index.js webhook sign --body-file ./tmp-order.json --secret test_secret --json
+node dist/index.js webhook verify --body-file ./tmp-order.json --secret test_secret --timestamp <timestamp> --signature <signature> --tolerance-seconds 300 --json
 ```
 
 ## Workstream D: Tests And Exit Codes
@@ -235,4 +237,3 @@ npm run build
 2. Run Workstream A and C in parallel.
 3. Run Workstream B after A/C stabilize, because typed payloads can touch many files.
 4. Keep Workstream E as research only until ClinkBill decides whether browser automation is acceptable.
-
