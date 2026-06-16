@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { BASE_URLS, DEFAULT_PROFILE } from "./constants.js";
 import type { ClinkEnvironment, GlobalOptions, RuntimeConfig, StoredConfig, StoredProfile } from "./types.js";
 
-const CONFIG_PATH = join(homedir(), ".clink-dev-cli", "config.json");
+const DEFAULT_CONFIG_PATH = join(homedir(), ".clink-dev-cli", "config.json");
 
 function emptyConfig(): StoredConfig {
   return {
@@ -14,12 +14,12 @@ function emptyConfig(): StoredConfig {
 }
 
 export function getConfigPath(): string {
-  return CONFIG_PATH;
+  return process.env.CLINK_CONFIG_PATH || DEFAULT_CONFIG_PATH;
 }
 
 export async function readStoredConfig(): Promise<StoredConfig> {
   try {
-    const raw = await readFile(CONFIG_PATH, "utf8");
+    const raw = await readFile(getConfigPath(), "utf8");
     const parsed = JSON.parse(raw) as StoredConfig;
     return {
       defaultProfile: parsed.defaultProfile ?? DEFAULT_PROFILE,
@@ -34,8 +34,9 @@ export async function readStoredConfig(): Promise<StoredConfig> {
 }
 
 export async function writeStoredConfig(config: StoredConfig): Promise<void> {
-  await mkdir(dirname(CONFIG_PATH), { recursive: true });
-  await writeFile(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const configPath = getConfigPath();
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
 export function resolveSecretRef(
@@ -115,4 +116,3 @@ function readEnvironmentFromEnv(): ClinkEnvironment | undefined {
 function normalizeBaseUrl(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;
 }
-
