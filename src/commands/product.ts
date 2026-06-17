@@ -1,5 +1,12 @@
 import type { Command } from "commander";
 import { createImageUploadForm } from "../api/client.js";
+import type {
+  ProductCreatePayload,
+  ProductCreateResponse,
+  ProductImageUploadResponse,
+  ProductListQuery,
+  ProductListResponse,
+} from "../api/openapi-types.js";
 import { DEFAULT_PAGE_SIZE } from "../constants.js";
 import { printResult, requireOption } from "../output.js";
 import { getCommandContext } from "./helpers.js";
@@ -28,19 +35,19 @@ export function registerProduct(program: Command): void {
 
       if (!imageId && options.imageFile) {
         const form = await createImageUploadForm(options.imageFile);
-        uploadResult = await client.post("/product/image/upload", { multipart: form });
+        uploadResult = await client.post<ProductImageUploadResponse>("/product/image/upload", { multipart: form });
         imageId = extractOssId(uploadResult);
       }
 
       requireOption("--image-id or --image-file", imageId);
 
-      const body = {
+      const body: ProductCreatePayload = {
         name: options.name,
         description: options.description,
         image: imageId,
-        taxCategory: options.taxCategory,
+        taxCategory: options.taxCategory as ProductCreatePayload["taxCategory"],
       };
-      const result = await client.post("/product", { body });
+      const result = await client.post<ProductCreateResponse, ProductCreatePayload>("/product", { body });
 
       printResult(
         { upload: uploadResult, product: result },
@@ -56,11 +63,12 @@ export function registerProduct(program: Command): void {
     .option("--page-size <number>", "Page size", String(DEFAULT_PAGE_SIZE))
     .action(async (options: { page: string; pageSize: string }, command: Command) => {
       const { config, client } = await getCommandContext(command);
-      const result = await client.get("/product", {
-        query: {
-          pageNum: Number(options.page),
-          pageSize: Number(options.pageSize),
-        },
+      const query: ProductListQuery = {
+        pageNum: Number(options.page),
+        pageSize: Number(options.pageSize),
+      };
+      const result = await client.get<ProductListResponse, ProductListQuery>("/product", {
+        query,
       });
       printResult(result, config.outputMode);
     });
@@ -71,4 +79,3 @@ function extractOssId(uploadResult: unknown): string | undefined {
   const data = (uploadResult as { data?: { ossId?: string } }).data;
   return data?.ossId;
 }
-

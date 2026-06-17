@@ -2,34 +2,49 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import type { RuntimeConfig } from "../types.js";
 
-export interface RequestOptions {
-  query?: Record<string, string | number | boolean | undefined>;
-  body?: unknown;
+type QueryValue = string | number | boolean | undefined;
+
+export interface RequestOptions<TBody = unknown, TQuery extends object = Record<string, QueryValue>> {
+  query?: TQuery;
+  body?: TBody;
   multipart?: FormData;
 }
 
 export class ClinkApiClient {
   constructor(private readonly config: RuntimeConfig) {}
 
-  async get<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>("GET", path, options);
+  async get<T = unknown, TQuery extends object = Record<string, QueryValue>>(
+    path: string,
+    options: RequestOptions<never, TQuery> = {},
+  ): Promise<T> {
+    return this.request<T, never, TQuery>("GET", path, options);
   }
 
-  async post<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>("POST", path, options);
+  async post<T = unknown, TBody = unknown, TQuery extends object = Record<string, QueryValue>>(
+    path: string,
+    options: RequestOptions<TBody, TQuery> = {},
+  ): Promise<T> {
+    return this.request<T, TBody, TQuery>("POST", path, options);
   }
 
-  async put<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>("PUT", path, options);
+  async put<T = unknown, TBody = unknown, TQuery extends object = Record<string, QueryValue>>(
+    path: string,
+    options: RequestOptions<TBody, TQuery> = {},
+  ): Promise<T> {
+    return this.request<T, TBody, TQuery>("PUT", path, options);
   }
 
-  async request<T = unknown>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  async request<T = unknown, TBody = unknown, TQuery extends object = Record<string, QueryValue>>(
+    method: string,
+    path: string,
+    options: RequestOptions<TBody, TQuery> = {},
+  ): Promise<T> {
     if (!this.config.apiKey && !this.config.dryRun) {
       throw new Error("Missing Clink Secret Key. Set CLINK_SECRET_KEY or run auth set --api-key env:CLINK_SECRET_KEY");
     }
 
     const url = new URL(path.replace(/^\//, ""), this.config.baseUrl);
-    for (const [key, value] of Object.entries(options.query ?? {})) {
+    for (const [key, value] of Object.entries(options.query ?? {}) as [string, QueryValue][]) {
       if (value !== undefined) {
         url.searchParams.set(key, String(value));
       }

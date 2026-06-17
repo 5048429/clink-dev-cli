@@ -1,7 +1,15 @@
 import type { Command } from "commander";
+import type {
+  PriceCreatePayload,
+  PriceCreateResponse,
+  PriceListQuery,
+  PriceListResponse,
+} from "../api/openapi-types.js";
 import { DEFAULT_PAGE_SIZE } from "../constants.js";
 import { parseNumberOption, printResult } from "../output.js";
 import { getCommandContext } from "./helpers.js";
+
+type PriceRecurringDetails = NonNullable<PriceCreatePayload["recurringDetails"]>;
 
 export function registerPrice(program: Command): void {
   const price = program.command("price").description("Create and list Clink prices");
@@ -30,24 +38,24 @@ export function registerPrice(program: Command): void {
       default?: boolean;
     }, command: Command) => {
       const { config, client } = await getCommandContext(command);
-      const body: Record<string, unknown> = {
+      const body: PriceCreatePayload = {
         productId: options.productId,
-        currency: options.currency.toUpperCase(),
+        currency: options.currency.toUpperCase() as PriceCreatePayload["currency"],
         unitAmount: parseNumberOption("--amount", options.amount),
-        priceType: options.type,
+        priceType: options.type as PriceCreatePayload["priceType"],
         isDefaultPrice: Boolean(options.default),
       };
 
       if (options.type === "recurring") {
         body.recurringDetails = {
-          interval: options.interval ?? "month",
+          interval: (options.interval ?? "month") as PriceRecurringDetails["interval"],
           intervalCount: Number(options.intervalCount),
           trialPeriodDays: options.trialDays ? Number(options.trialDays) : undefined,
-          pricingModel: options.pricingModel,
+          pricingModel: options.pricingModel as PriceRecurringDetails["pricingModel"],
         };
       }
 
-      const result = await client.post("/price", { body });
+      const result = await client.post<PriceCreateResponse, PriceCreatePayload>("/price", { body });
       printResult(result, config.outputMode, `Price create request completed for product ${options.productId}`);
     });
 
@@ -60,15 +68,15 @@ export function registerPrice(program: Command): void {
     .option("--page-size <number>", "Page size", String(DEFAULT_PAGE_SIZE))
     .action(async (options: { productId: string; active: string; page: string; pageSize: string }, command: Command) => {
       const { config, client } = await getCommandContext(command);
-      const result = await client.get("/price", {
-        query: {
-          productId: options.productId,
-          active: options.active === "true",
-          pageNum: Number(options.page),
-          pageSize: Number(options.pageSize),
-        },
+      const query: PriceListQuery = {
+        productId: options.productId,
+        active: options.active === "true",
+        pageNum: Number(options.page),
+        pageSize: Number(options.pageSize),
+      };
+      const result = await client.get<PriceListResponse, PriceListQuery>("/price", {
+        query,
       });
       printResult(result, config.outputMode);
     });
 }
-
