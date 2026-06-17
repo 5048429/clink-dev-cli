@@ -136,6 +136,7 @@ clink checkout create ... --json
 - [Roadmap](docs/roadmap.md)
 - [Agent workflow](docs/agent-workflow.md)
 - [Exit codes](docs/exit-codes.md)
+- [OpenAPI types](docs/openapi-client.md)
 
 ## Agent Skill
 
