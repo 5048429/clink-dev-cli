@@ -134,6 +134,7 @@ clink checkout create ... --json
 
 - [Requirements](docs/requirements.md)
 - [中文需求说明](docs/requirements.zh-CN.md)
+- [产品需求文档](docs/product-requirements.zh-CN.md)
 - [Roadmap](docs/roadmap.md)
 - [Agent workflow](docs/agent-workflow.md)
 - [Exit codes](docs/exit-codes.md)
