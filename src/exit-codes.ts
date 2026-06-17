@@ -18,7 +18,7 @@ export function classifyError(error: unknown): ExitCodeValue {
     return ExitCode.AUTH_REQUIRED;
   }
 
-  if (/missing required option|invalid command|unknown command|unknown option|required option/i.test(message)) {
+  if (/missing required option|invalid command|unknown command|unknown option|required option|option .* must be|invalid metadata/i.test(message)) {
     return ExitCode.USAGE;
   }
 

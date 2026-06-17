@@ -18,6 +18,14 @@ During local development:
 npm run dev -- --help
 ```
 
+Validate changes before handoff:
+
+```bash
+npm run check
+npm run build
+npm test
+```
+
 ## Configure
 
 Prefer environment-variable references instead of storing secrets directly:
