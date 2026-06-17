@@ -32,6 +32,7 @@ The first release should support:
 - local webhook event simulation with Clink-compatible HMAC signing
 - integration doctor checks
 - smoke-test command for checkout and webhook verification
+- framework starter generation for Next.js App Router, Express, and FastAPI
 
 ## Non-Goals For MVP
 
@@ -51,5 +52,5 @@ Future versions should add:
 - `clink listen` for local webhook forwarding
 - OpenAPI-generated typed client
 - official MCP server integration
-- framework-specific code generation for Next.js, Express, FastAPI, Laravel, and Rails
+- framework-specific code generation for Laravel, Rails, and other server stacks
 
