@@ -58,6 +58,18 @@ clink doctor
 clink smoke-test
 ```
 
+## Framework Starters
+
+Generate starter integration files for common server frameworks:
+
+```bash
+clink init --framework nextjs --out ./tmp-next --force --json
+clink init --framework express --out ./tmp-express --force --json
+clink init --framework fastapi --out ./tmp-fastapi --force --json
+```
+
+Each starter includes checkout, subscription, and raw-body webhook examples, plus `.env.example`, curl examples, and integration docs. Secrets are read from environment variables such as `CLINK_SECRET_KEY` and `CLINK_WEBHOOK_SIGNING_KEY`.
+
 ## AI-Friendly Output
 
 All commands accept `--json` so coding agents can parse results reliably:

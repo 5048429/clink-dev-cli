@@ -13,7 +13,7 @@ This document breaks the project into parallel workstreams. Each workstream can 
 
 ## Workstream A: Framework Starters
 
-Goal: make `clink init --framework <name> --write` generate useful starter code.
+Goal: make `clink init --framework <name>` generate useful starter code.
 
 Suggested branch:
 
