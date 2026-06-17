@@ -15,7 +15,8 @@ describe("webhook signing and verification", () => {
     const rawBody = "{\"id\":\"evt_test\"}";
     const signature = signWebhookPayload(secret, timestamp, rawBody);
 
-    expect(verifyWebhookPayload(secret, timestamp, rawBody, signature)).toBe(true);
-    expect(verifyWebhookPayload(secret, timestamp, "{\"id\":\"evt_tampered\"}", signature)).toBe(false);
+    expect(verifyWebhookPayload(secret, timestamp, rawBody, signature, { nowMs: 1700000000000 })).toBe(true);
+    expect(verifyWebhookPayload(secret, timestamp, "{\"id\":\"evt_tampered\"}", signature, { nowMs: 1700000000000 })).toBe(false);
+    expect(verifyWebhookPayload(secret, timestamp, rawBody, signature, { nowMs: 1700000601000 })).toBe(false);
   });
 });
