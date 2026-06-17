@@ -1,13 +1,40 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { Command } from "commander";
 import { resolveSecretRef } from "../config.js";
-import { printResult, requireOption } from "../output.js";
+import { parseIntegerOption, printResult, requireOption } from "../output.js";
 import { createWebhookFixture } from "../webhook/fixtures.js";
-import { signWebhookPayload, verifyWebhookPayload } from "../webhook/signature.js";
+import {
+  DEFAULT_WEBHOOK_TOLERANCE_SECONDS,
+  signWebhookPayload,
+  verifyWebhookPayload,
+} from "../webhook/signature.js";
 import { getCommandContext } from "./helpers.js";
 
 export function registerWebhook(program: Command): void {
   const webhook = program.command("webhook").description("Simulate, sign, and verify Clink webhooks locally");
+
+  webhook
+    .command("fixture")
+    .description("Write a stable local webhook fixture to disk")
+    .argument("<type>", "Event type, for example invoice.paid")
+    .requiredOption("--out <file>", "Output JSON file")
+    .action(async (type: string, options: { out: string }, command: Command) => {
+      const { config } = await getCommandContext(command);
+      const event = createWebhookFixture(type);
+      await mkdir(dirname(options.out), { recursive: true });
+      await writeFile(options.out, `${JSON.stringify(event, null, 2)}\n`, "utf8");
+
+      printResult(
+        {
+          eventType: type,
+          out: options.out,
+          fixture: event,
+        },
+        config.outputMode,
+        `Wrote ${type} fixture to ${options.out}`,
+      );
+    });
 
   webhook
     .command("simulate")
@@ -96,17 +123,26 @@ export function registerWebhook(program: Command): void {
     .requiredOption("--timestamp <value>", "X-Clink-Timestamp header")
     .requiredOption("--signature <value>", "X-Clink-Signature header")
     .option("--secret <value>", "Webhook signing key literal or env:CLINK_WEBHOOK_SIGNING_KEY")
+    .option("--tolerance-seconds <seconds>", "Allowed timestamp drift before rejecting", String(DEFAULT_WEBHOOK_TOLERANCE_SECONDS))
     .action(async (
-      options: { bodyFile: string; timestamp: string; signature: string; secret?: string },
+      options: { bodyFile: string; timestamp: string; signature: string; secret?: string; toleranceSeconds: string },
       command: Command,
     ) => {
       const { config } = await getCommandContext(command);
       const secret = resolveSecretRef(options.secret, []).secret ?? config.webhookSigningKey;
       requireOption("--secret or CLINK_WEBHOOK_SIGNING_KEY", secret);
       const rawBody = await readFile(options.bodyFile, "utf8");
-      const valid = verifyWebhookPayload(secret, options.timestamp, rawBody, options.signature);
-      printResult({ valid }, config.outputMode, valid ? "valid" : "invalid");
+      const toleranceSeconds = parseNonNegativeIntegerOption("--tolerance-seconds", options.toleranceSeconds);
+      const valid = verifyWebhookPayload(secret, options.timestamp, rawBody, options.signature, { toleranceSeconds });
+      printResult({ valid, toleranceSeconds }, config.outputMode, valid ? "valid" : "invalid");
       if (!valid) process.exitCode = 1;
     });
 }
 
+function parseNonNegativeIntegerOption(name: string, value: string | number | undefined): number {
+  const parsed = parseIntegerOption(name, value);
+  if (parsed < 0) {
+    throw new Error(`Option ${name} must be greater than or equal to 0`);
+  }
+  return parsed;
+}
