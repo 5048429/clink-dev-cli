@@ -1,7 +1,10 @@
 import type { Command } from "commander";
+import type { CheckoutSessionCreatePayload, CheckoutSessionCreateResponse } from "../api/openapi-types.js";
 import { curlForJsonRequest } from "../curl.js";
 import { parseIntegerOption, parseNumberOption, printResult } from "../output.js";
 import { buildUrl, getCommandContext } from "./helpers.js";
+
+type CheckoutPriceData = NonNullable<CheckoutSessionCreatePayload["priceDataList"]>[number];
 
 export function registerCheckout(program: Command): void {
   const checkout = program.command("checkout").description("Create checkout sessions");
@@ -43,16 +46,16 @@ export function registerCheckout(program: Command): void {
     }, command: Command) => {
       const { config, client } = await getCommandContext(command);
       const amount = parseNumberOption("--amount", options.amount);
-      const body: Record<string, unknown> = {
+      const body: CheckoutSessionCreatePayload = {
         customerEmail: options.customerEmail,
         originalAmount: amount,
         originalCurrency: options.currency.toUpperCase(),
         merchantReferenceId: options.merchantReferenceId,
         successUrl: options.successUrl,
         cancelUrl: options.cancelUrl,
-        uiMode: options.uiMode,
+        uiMode: options.uiMode as CheckoutSessionCreatePayload["uiMode"],
         returnUrl: options.returnUrl,
-        paymentMethodType: options.paymentMethodType,
+        paymentMethodType: options.paymentMethodType as CheckoutSessionCreatePayload["paymentMethodType"],
         allowPromotionCodes: Boolean(options.allowPromotionCodes),
       };
 
@@ -60,18 +63,20 @@ export function registerCheckout(program: Command): void {
         body.productId = options.productId;
         body.priceId = options.priceId;
       } else {
-        body.priceDataList = [
-          {
-            name: options.name ?? "Test Product",
-            quantity: parseIntegerOption("--quantity", options.quantity),
-            unitAmount: amount,
-            currency: options.currency.toUpperCase(),
-            imageUrl: options.imageUrl,
-          },
-        ];
+        const priceData: CheckoutPriceData = {
+          name: options.name ?? "Test Product",
+          quantity: parseIntegerOption("--quantity", options.quantity),
+          unitAmount: amount,
+          currency: options.currency.toUpperCase(),
+          imageUrl: options.imageUrl,
+        };
+        body.priceDataList = [priceData];
       }
 
-      const result = await client.post("/checkout/session", { body });
+      const result = await client.post<CheckoutSessionCreateResponse, CheckoutSessionCreatePayload>(
+        "/checkout/session",
+        { body },
+      );
       const url = buildUrl(config.baseUrl, "/checkout/session");
       printResult(
         {
@@ -83,4 +88,3 @@ export function registerCheckout(program: Command): void {
       );
     });
 }
-

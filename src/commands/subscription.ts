@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import type { SubscriptionCreatePayload, SubscriptionCreateResponse } from "../api/openapi-types.js";
 import { curlForJsonRequest } from "../curl.js";
 import { printResult } from "../output.js";
 import { buildUrl, getCommandContext, parseMetadata } from "./helpers.js";
@@ -34,7 +35,7 @@ export function registerSubscription(program: Command): void {
       metadata: string[];
     }, command: Command) => {
       const { config, client } = await getCommandContext(command);
-      const body = {
+      const body: SubscriptionCreatePayload = {
         customerId: options.customerId,
         customerEmail: options.customerEmail,
         referenceCustomerId: options.referenceCustomerId,
@@ -42,12 +43,12 @@ export function registerSubscription(program: Command): void {
         productId: options.productId,
         priceId: options.priceId,
         paymentInstrumentId: options.paymentInstrumentId,
-        paymentMethodType: options.paymentMethodType,
+        paymentMethodType: options.paymentMethodType as SubscriptionCreatePayload["paymentMethodType"],
         paymentCurrency: options.paymentCurrency.toUpperCase(),
         returnUrl: options.returnUrl,
         metadata: parseMetadata(options.metadata),
       };
-      const result = await client.post("/subscription", { body });
+      const result = await client.post<SubscriptionCreateResponse, SubscriptionCreatePayload>("/subscription", { body });
       const url = buildUrl(config.baseUrl, "/subscription");
       printResult(
         {
@@ -64,4 +65,3 @@ function collect(value: string, previous: string[]): string[] {
   previous.push(value);
   return previous;
 }
-

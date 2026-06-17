@@ -18,6 +18,14 @@ During local development:
 npm run dev -- --help
 ```
 
+Validate changes before handoff:
+
+```bash
+npm run check
+npm run build
+npm test
+```
+
 ## Configure
 
 Prefer environment-variable references instead of storing secrets directly:
@@ -58,6 +66,62 @@ clink doctor
 clink smoke-test
 ```
 
+## Framework Starters
+
+Generate starter integration files for common server frameworks:
+
+```bash
+clink init --framework nextjs --out ./tmp-next --force --json
+clink init --framework express --out ./tmp-express --force --json
+clink init --framework fastapi --out ./tmp-fastapi --force --json
+```
+
+Each starter includes checkout, subscription, and raw-body webhook examples, plus `.env.example`, curl examples, and integration docs. Secrets are read from environment variables such as `CLINK_SECRET_KEY` and `CLINK_WEBHOOK_SIGNING_KEY`.
+
+## Local Webhook Development
+
+The webhook tools do not require Dashboard setup or live Clink API access. Use a local signing key such as `env:CLINK_WEBHOOK_SIGNING_KEY` or a throwaway value like `test_secret`.
+
+Generate a stable fixture:
+
+```bash
+clink webhook fixture invoice.paid --out ./fixtures/invoice-paid.json --json
+```
+
+Sign the exact raw file contents:
+
+```bash
+clink webhook sign --body-file ./fixtures/invoice-paid.json --secret env:CLINK_WEBHOOK_SIGNING_KEY --json
+```
+
+Verify the raw file contents, timestamp, and signature before accepting a local webhook:
+
+```bash
+clink webhook verify --body-file ./fixtures/invoice-paid.json --secret env:CLINK_WEBHOOK_SIGNING_KEY --timestamp <timestamp-from-sign> --signature <signature-from-sign> --tolerance-seconds 300 --json
+```
+
+`clink webhook verify` rejects timestamps outside the tolerance window. The default tolerance is 300 seconds. The signature is HMAC SHA-256 over:
+
+```text
+X-Clink-Timestamp + "." + rawBody
+```
+
+Supported fixtures:
+
+```text
+session.complete
+session.expired
+order.created
+order.succeeded
+order.failed
+subscription.created
+subscription.activated
+subscription.past_due
+invoice.open
+invoice.paid
+invoice.void
+```
+
 ## AI-Friendly Output
 
 All commands accept `--json` so coding agents can parse results reliably:
@@ -72,6 +136,7 @@ clink checkout create ... --json
 - [Roadmap](docs/roadmap.md)
 - [Agent workflow](docs/agent-workflow.md)
 - [Exit codes](docs/exit-codes.md)
+- [OpenAPI types](docs/openapi-client.md)
 
 ## Agent Skill
 
