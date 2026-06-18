@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Command } from "commander";
 import { resolveSecretRef } from "../config.js";
+import { formatFetchError } from "../dashboard-console.js";
 import { parseIntegerOption, printResult, requireOption } from "../output.js";
 import { createWebhookFixture } from "../webhook/fixtures.js";
 import {
@@ -55,15 +56,20 @@ export function registerWebhook(program: Command): void {
 
       let forwardResult: unknown;
       if (options.forwardTo) {
-        const response = await fetch(options.forwardTo, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Clink-Timestamp": timestamp,
-            "X-Clink-Signature": signature,
-          },
-          body: rawBody,
-        });
+        let response: Response;
+        try {
+          response = await fetch(options.forwardTo, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Clink-Timestamp": timestamp,
+              "X-Clink-Signature": signature,
+            },
+            body: rawBody,
+          });
+        } catch (error) {
+          throw new Error(`Webhook forward to ${options.forwardTo} network error: ${formatFetchError(error)}`);
+        }
         forwardResult = {
           status: response.status,
           ok: response.ok,

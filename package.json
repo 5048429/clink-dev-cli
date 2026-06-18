@@ -3,14 +3,18 @@
   "version": "0.1.0",
   "description": "Merchant developer CLI for ClinkBill integrations.",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "clink": "dist/index.js",
     "clink-dev": "dist/index.js"
   },
   "files": [
     "dist",
+    "scripts",
     "README.md",
     "docs",
+    "SKILL.md",
     ".env.example"
   ],
   "scripts": {
@@ -19,13 +23,36 @@
     "check": "tsc --noEmit",
     "openapi:refresh": "openapi-typescript https://docs.clinkbill.com/api-reference/openapi.json -o src/openapi/clink.openapi.ts",
     "test": "vitest run",
+    "verify": "npm run check && npm test && npm run build",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
+    "pack:dry-run": "npm pack --dry-run",
     "start": "node dist/index.js"
   },
   "engines": {
     "node": ">=20"
   },
+  "keywords": [
+    "clink",
+    "clinkbill",
+    "payments",
+    "checkout",
+    "webhook",
+    "cli",
+    "ai-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/5048429/clink-dev-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/5048429/clink-dev-cli/issues"
+  },
+  "homepage": "https://github.com/5048429/clink-dev-cli#readme",
+  "packageManager": "npm@11.12.1",
   "dependencies": {
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "playwright": "^1.61.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

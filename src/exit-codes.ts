@@ -14,7 +14,7 @@ export type ExitCodeValue = (typeof ExitCode)[keyof typeof ExitCode];
 export function classifyError(error: unknown): ExitCodeValue {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (/missing clink secret key|api key|unauthorized|authentication/i.test(message)) {
+  if (/missing clink secret key|dashboard console token|access token|api key|unauthorized|authentication/i.test(message)) {
     return ExitCode.AUTH_REQUIRED;
   }
 

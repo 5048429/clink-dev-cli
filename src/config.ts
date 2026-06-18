@@ -100,6 +100,7 @@ export async function resolveRuntimeConfig(options: GlobalOptions): Promise<Runt
     baseUrl,
     apiKey,
     apiKeySource,
+    dashboard: profile.dashboard,
     webhookSigningKey: profileWebhookKey.secret ?? envWebhookKey.secret,
     webhookSigningKeySource: profileWebhookKey.source ?? envWebhookKey.source,
     dryRun: Boolean(options.dryRun),

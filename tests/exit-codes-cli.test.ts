@@ -70,7 +70,19 @@ describe("JSON error output", () => {
   });
 
   it("prints parseable JSON and exits 77 when API auth is required", () => {
-    const result = runClink(["--json", "product", "create", "--name", "Test", "--image-id", "oss_test"]);
+    const result = runClink([
+      "--json",
+      "product",
+      "create",
+      "--name",
+      "Test",
+      "--image-id",
+      "oss_test",
+      "--amount",
+      "9.99",
+      "--currency",
+      "USD",
+    ]);
 
     expect(result.status).toBe(ExitCode.AUTH_REQUIRED);
     expect(result.stdout).toBe("");

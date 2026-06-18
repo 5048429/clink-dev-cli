@@ -1,640 +1,193 @@
-# Clink Dev CLI 产品需求文档
+# ClinkBill AI 自动接入产品需求文档
 
-## 1. 文档目的
+## 1. 一句话目标
 
-本文档从 Clink 产品经理视角定义 `clink-dev-cli` 的产品目标、用户价值、功能范围、优先级、验收标准和后续演进方向。
+让开发者把“接入 ClinkBill 支付”交给 AI 后，AI 能在 UAT 环境自动完成密钥准备、代码接入、checkout/订阅测试、webhook 配置和验收报告。
 
-`clink-dev-cli` 的核心定位是：为 ClinkBill 商户、独立开发者和 AI Coding Agent 提供一个稳定、可脚本化、AI 友好的开发者命令行工具，降低支付接入过程中的 Dashboard 操作成本、文档理解成本和本地调试成本。
+当前 CLI 不是最终目标，而是过渡工具：先把 Dashboard 手工步骤封装起来，证明这些步骤可以被 AI 调用；下一步再把这些能力沉淀成官方开放 API。
+
+最终体验：
+
+```bash
+clink setup uat --project . --run-smoke-test --json
+```
+
+用户最多只做一次授权，其余步骤由 AI 自动完成。
 
 ## 2. 背景
 
-ClinkBill 目前已经具备 checkout、subscription、product、price、webhook、refund、test clock、customer portal 等支付与计费能力。
+当前官方提示词希望 Agent 完成：
 
-但对新商户和独立开发者来说，接入过程仍然存在明显摩擦：
+- 创建 checkout session 并完成测试支付
+- 创建 subscription
+- 配置 webhook endpoint 并校验签名
+- 把测试密钥写入 `.env`
+- 给出最小 demo 和 curl 示例
 
-- 需要在 Dashboard、API 文档、代码项目之间频繁切换
-- checkout、subscription、webhook 的概念分散，缺少统一本地工作流
-- webhook 签名校验、raw body、时间戳容忍、幂等处理等细节容易出错
-- AI Agent 可以写代码，但缺少稳定 CLI 工具来验证接入是否正确
-- 当前 Dashboard 中的 API key、webhook endpoint 等能力尚未完全 API 化
-- Stripe 已经在 AI workflow、CLI、MCP、sandbox、webhook 本地调试方面形成较强心智，Clink 需要建立自己的开发者体验壁垒
+问题是：这个提示词默认 Secret Key、Webhook、Signing Secret、测试事件和投递日志都已经可用。
 
-因此，Clink 需要一个面向开发者和 AI Agent 的官方 CLI，将 ClinkBill 的支付接入能力包装成稳定命令。
+实际接入时，这些关键资源很多只能在 Dashboard 里手动创建、复制或查看，所以 AI 只能写代码，不能完整跑通接入闭环。
 
-## 3. 产品定位
+## 3. 当前人工断点
 
-`clink-dev-cli` 是 ClinkBill 的 merchant developer CLI。
+| 环节 | 现在需要人工做什么 | 目标状态 |
+| --- | --- | --- |
+| 身份授权 | 登录 Dashboard | 用户一次授权，AI 获得 UAT Agent Key |
+| Secret Key | 在 Dashboard 创建或复制 | AI 自动创建/读取并写入 `.env` |
+| Publishable Key | 在 Dashboard 查找 | AI 自动创建/读取并写入前端配置 |
+| Webhook Endpoint | 手动填写 URL、事件、状态 | AI 自动创建、更新、启用 |
+| Webhook Signing Secret | 手动复制 | AI 自动获取并写入 `.env` |
+| 本地公网回调地址 | 用户自己配置 tunnel | CLI 自动启动 listen/tunnel |
+| 测试支付/订阅 | 用户手动支付或补上下文 | AI 自动创建测试 session/subscription |
+| Webhook 验收 | 用户看 Dashboard 日志 | AI 查询 event、delivery、失败原因 |
 
-它不是：
+核心判断：只优化提示词不够，必须把 Dashboard-only 能力变成 Agent 可调用能力。
 
-- 商户开户注册工具
-- Dashboard 替代品
-- 生产审批工具
-- 钱包用户支付 CLI 的替代品
-- 浏览器自动化工具
+## 4. 当前 CLI 已经做到什么
 
-它是：
+当前 `clink-dev-cli` 已经验证了“登录之后，其余很多 Dashboard 操作可以交给 AI”。
 
-- ClinkBill API 的开发者封装层
-- 本地 webhook 调试工具
-- starter 代码生成器
-- 集成健康检查工具
-- AI Agent 可调用的支付接入工作台
+| 能力 | 当前状态 | 仍然缺什么 |
+| --- | --- | --- |
+| Dashboard 登录 | `clink login` 打开浏览器，用户手动登录，CLI 捕获 Sa-Token | 还没有 Agent Key 授权 |
+| 获取当前商户身份 | CLI 可读取当前 user / tenant / merchant | 需要官方稳定身份 API |
+| API Key | CLI 可封装 Dashboard API 获取/确保 Secret Key 并保存 | 需要官方 API Key Ensure API |
+| Webhook 配置 | CLI 可创建、更新、启用、保存 signing secret | 需要官方 Webhook Endpoint API |
+| Checkout | CLI 可创建 checkout session 并打开支付页 | 需要统一 smoke test 流程 |
+| Webhook 签名 | CLI 可模拟、签名、校验 webhook | 需要真实 delivery 查询与重放 |
+| 本地接收 | 已验证公网 tunnel + 本地 receiver 可行 | 需要产品化 `clink listen` |
 
-产品定位可以概括为：
+当前结论：
 
 ```text
-帮助开发者和 AI Agent 在本地快速完成 ClinkBill 支付接入验证。
+用户手动登录一次后，CLI 已经能把 Secret Key 获取、Webhook 配置、Checkout 创建、Webhook 签名验证这些步骤交给 AI。
 ```
 
-## 4. 目标用户
+## 5. 本轮 UAT 验证结果
 
-### 4.1 独立开发者
+已验证成功：
 
-他们希望在个人项目、SaaS、小型电商网站中快速接入 ClinkBill。
+- CLI 可以保存当前商户 Secret Key
+- CLI 可以创建/更新/启用 webhook endpoint
+- CLI 可以创建 checkout session
+- UAT 支付可以成功生成订单事件
+- 本地 receiver 可以通过公网 HTTPS tunnel 收到 CLI 模拟 webhook
 
-核心诉求：
+当前卡点：
 
-- 少看文档
-- 少进 Dashboard
-- 快速生成可用代码
-- 能本地验证 webhook
-- 能复制 curl 示例调试
+```text
+真实订单事件已生成，但 webhook delivery 为空。
+```
 
-### 4.2 AI Coding Agent
+也就是说，AI 目前能看到事件存在，但无法通过 API 判断为什么没有投递到 webhook endpoint。
 
-包括 Codex、Claude Code、Cursor、OpenClaw 等可以操作代码库的 agent。
+这个问题需要平台提供机器可读的 event / delivery / replay / logs 能力解决。
 
-核心诉求：
+## 6. 下一步要做的产品能力
 
-- 有稳定 CLI 命令
-- 有 `--json` 输出
-- 有稳定 exit code
-- 有 `--dry-run`
-- 可以生成 starter
-- 可以验证 webhook 签名
+### P0：让 AI 不再依赖 Dashboard 手工配置
 
-### 4.3 Clink 内部集成支持团队
+必须开放 5 类能力：
 
-他们需要帮助商户快速排查接入问题。
+| 能力 | 作用 | 最小要求 |
+| --- | --- | --- |
+| Agent Session API | 给 AI 一个 UAT 授权身份 | 创建、查询、撤销、过期时间、merchant 绑定 |
+| API Key Ensure API | 自动准备 Secret Key / Publishable Key | 没有就创建，有就返回，支持写入 `.env` |
+| Webhook Endpoint API | 自动配置 webhook | create/update/enable/disable，返回 signing secret |
+| Events & Delivery API | 自动判断 webhook 是否成功 | 查询事件、投递记录、失败原因、重试/重放 |
+| Trigger API | 自动触发测试事件 | checkout succeeded、subscription created、invoice paid |
 
-核心诉求：
-
-- 统一排查命令
-- 快速复现 webhook 签名问题
-- 生成标准 starter
-- 降低重复答疑成本
-
-### 4.4 商户工程团队
-
-他们希望将 Clink 接入流程放进 CI 或内部开发脚本。
-
-核心诉求：
-
-- 可脚本化
-- 可测试
-- 可审计
-- 不泄露密钥
-
-## 5. 用户问题
-
-### 问题一：API 能力存在，但开发者不知道如何正确组合
-
-Clink API 已经提供 checkout、product、price、subscription 等接口，但开发者需要自己理解字段、环境、header、payload 和返回结果。
-
-CLI 应通过命令抽象降低理解成本。
-
-### 问题二：webhook 是支付接入的高风险环节
-
-webhook 涉及 raw body、签名、时间戳、幂等、乱序、重试。如果商户实现不正确，可能导致重复发货、漏记订单或误判支付状态。
-
-CLI 应提供本地模拟、签名、验证和 fixture 生成。
-
-### 问题三：AI Agent 写代码容易，但验证链路困难
-
-AI Agent 可以修改项目代码，但没有一个稳定工具来判断“Clink 接入是否真的跑通”。
-
-CLI 应提供 JSON 输出、dry-run、doctor、smoke-test 和 starter，帮助 Agent 闭环。
-
-### 问题四：Dashboard 操作尚未完全 API 化
-
-API key 初始化、webhook endpoint 注册、生产审批等操作当前仍依赖 Dashboard 或人工流程。
-
-CLI 应明确边界：能自动化技术验证，不能绕过必要的人类授权和合规确认。
-
-## 6. 产品目标
-
-### 6.1 第一阶段目标
-
-交付一个可用的 `v0.1.0` CLI，让开发者在 sandbox 环境中完成基础支付集成验证。
-
-需要支持：
-
-- checkout session 创建
-- product / price 管理
-- subscription 创建
-- webhook 本地模拟和签名验证
-- Next.js、Express、FastAPI starter 生成
-- doctor 和 smoke-test
-- OpenAPI 类型生成
-- 测试和 exit code 基础设施
-
-### 6.2 中期目标
-
-让 CLI 成为 ClinkBill 官方推荐的开发者接入入口。
-
-需要支持：
-
-- webhook endpoint 管理 API
-- event list / replay / trigger API
-- 更完整的 production validation
-- 更多框架 starter
-- CI 集成示例
-
-### 6.3 长期目标
-
-让 ClinkBill 具备 AI-native payment integration 能力。
-
-需要支持：
-
-- 官方 MCP server
-- Agent skill / plugin
-- Dashboard-less sandbox setup
-- `clink listen`
-- `clink trigger`
-- production readiness gate
-
-## 7. 核心用户路径
-
-### 7.1 无真实 key 的体验路径
-
-用户可以在没有真实 Clink key 的情况下体验 CLI：
+对应 CLI 聚合命令：
 
 ```bash
-clink checkout create --dry-run --customer-email test@example.com --amount 19.99 --currency USD --json
-clink webhook simulate invoice.paid --secret test_secret --json
-clink init --framework nextjs --out .demo-next --force --json
+clink setup uat --project . --run-smoke-test --json
 ```
 
-产品价值：
+### P1：让 AI 自己诊断失败
 
-- 降低首次体验门槛
-- 让开发者快速理解 Clink API 请求结构
-- 让 AI Agent 可以先生成集成代码
+需要补充：
 
-### 7.2 sandbox 真实 API 验证路径
+- request id
+- structured error code
+- webhook delivery 未生成原因
+- replay 结果
+- agent run report
 
-用户配置 sandbox Secret Key：
+目标是失败时 AI 能说清楚：
+
+```text
+失败发生在哪一步、原因是什么、下一步该调用哪个命令或 API。
+```
+
+### P2：生产上线辅助
+
+生产环境不建议完全自动上线，但可以提供检查和引导：
+
+- `clink production doctor`
+- 生产 readiness checklist
+- Dashboard deep link
+- 生产权限申请状态
+
+## 7. 升级后的 Agent 提示词
+
+```text
+帮我把 ClinkBill 支付接入到当前项目。
+
+你可以使用 clink-dev-cli 和 Clink UAT Agent API。
+
+请完成：
+1. 识别当前项目语言、框架和环境变量方式
+2. 获取 UAT Agent 授权
+3. 确保当前 merchant 有 Secret Key 和 Publishable Key
+4. 把 key 写入项目现有 .env / env 配置
+5. 接入 checkout session
+6. 接入 subscription
+7. 接入 webhook raw body 验签
+8. 自动创建或更新 webhook endpoint
+9. 启动本地 listen tunnel
+10. 触发测试 checkout / subscription / webhook 事件
+11. 查询 event 和 webhook delivery
+12. 输出接入报告、curl 示例和一键启动命令
+
+约束：
+- 不硬编码 secret
+- 使用项目现有服务端框架
+- 所有 CLI/API 调用使用 --json
+- 失败时输出机器可读原因
+```
+
+## 8. 最小验收标准
+
+当 P0 完成后，以下流程应无需用户进入 Dashboard：
 
 ```bash
-clink auth set --api-key env:CLINK_SECRET_KEY --env sandbox
-clink doctor --json
-clink checkout create ...
-clink smoke-test --json
+clink setup uat --project . --run-smoke-test --json
 ```
 
-产品价值：
-
-- 真实调用 Clink sandbox
-- 验证 API key、base URL、payload 和返回结果
-- 帮助商户在上线前发现配置问题
-
-### 7.3 框架 starter 路径
-
-用户生成 starter：
-
-```bash
-clink init --framework nextjs --out ./clink-next-demo --force
-```
-
-产品价值：
-
-- 提供可复制的标准实现
-- 降低 webhook raw body 实现错误
-- 给 AI Agent 一个可参考模板
-
-### 7.4 webhook 本地调试路径
-
-用户生成并验证 webhook：
-
-```bash
-clink webhook fixture order.succeeded --out ./fixtures/order.json
-clink webhook sign --body-file ./fixtures/order.json --secret env:CLINK_WEBHOOK_SIGNING_KEY --json
-clink webhook verify --body-file ./fixtures/order.json --timestamp <timestamp> --signature <signature> --secret env:CLINK_WEBHOOK_SIGNING_KEY --json
-```
-
-产品价值：
-
-- 本地验证签名逻辑
-- 不依赖 Dashboard webhook endpoint
-- 支持 CI 和自动化测试
-
-## 8. 功能需求
-
-### P0：必须完成
-
-#### 8.1 基础 CLI 框架
-
-要求：
-
-- 使用 TypeScript
-- 使用 Commander 作为命令路由
-- 支持 Node.js 20+
-- 支持 ESM
-- 支持 `--json`
-- 支持 `--dry-run`
-
-验收：
-
-```bash
-clink --help
-clink auth status --json
-```
-
-#### 8.2 API client
-
-要求：
-
-- 支持 sandbox / production base URL
-- 默认 sandbox
-- 自动设置 `X-API-KEY`
-- 自动设置 `X-Timestamp`
-- 支持 JSON body
-- 支持 multipart product image upload
-- dry-run 时不真实请求远端
-
-#### 8.3 Checkout 命令
-
-命令：
-
-```bash
-clink checkout create
-```
-
-要求：
-
-- 支持 inline one-time product
-- 支持 registered product / price
-- 支持 customer email
-- 支持 success URL / cancel URL
-- 输出 curl 示例
-- 支持 dry-run
-
-#### 8.4 Product / Price 命令
-
-命令：
-
-```bash
-clink product create
-clink product list
-clink price create
-clink price list
-```
-
-要求：
-
-- 支持 product image id
-- 支持 product image upload
-- 支持 one-time price
-- 支持 recurring price
-- 支持 active price 查询
-
-#### 8.5 Subscription 命令
-
-命令：
-
-```bash
-clink subscription create
-```
-
-要求：
-
-- 支持 product id
-- 支持 price id
-- 支持 payment instrument id
-- 支持 customer id / customer email / reference customer id
-- 支持 metadata
-- 支持 curl 示例
-
-#### 8.6 Webhook 工具
-
-命令：
-
-```bash
-clink webhook fixture
-clink webhook simulate
-clink webhook sign
-clink webhook verify
-```
-
-要求：
-
-- 支持生成 fixture
-- 支持签名
-- 支持验证签名
-- 支持 timestamp tolerance
-- 支持转发到本地 endpoint
-- 使用 Clink 兼容签名算法
-
-#### 8.7 Framework starters
-
-命令：
-
-```bash
-clink init --framework nextjs
-clink init --framework express
-clink init --framework fastapi
-```
-
-要求：
-
-- 生成 checkout route
-- 生成 subscription route
-- 生成 webhook route
-- 生成 `.env.example`
-- 生成 curl examples
-- 生成接入说明
-- CLI 自身不引入对应框架为运行时依赖
-
-#### 8.8 Doctor / Smoke Test
-
-命令：
-
-```bash
-clink doctor
-clink smoke-test
-```
-
-要求：
-
-- 检查环境
-- 检查 API key
-- 检查 webhook signing key
-- 可选检查 API 连通性
-- 可选发送本地签名 webhook
-
-#### 8.9 OpenAPI 类型
-
-要求：
-
-- 支持 `npm run openapi:refresh`
-- 从官方 OpenAPI 生成类型
-- 在 API 命令中逐步使用类型约束
-- 文档说明刷新方式和覆盖范围
-
-#### 8.10 测试和 exit code
-
-要求：
-
-- 支持 `npm test`
-- 测试 dry-run
-- 测试 webhook signature
-- 测试 secret masking
-- 测试 exit code
-- JSON 错误输出包含 `exitCode`
-
-### P1：下一阶段
-
-#### 8.11 `checkout create --open`
-
-创建 checkout session 后自动打开 hosted checkout URL。
-
-价值：
-
-- 降低测试支付入口成本
-- 更接近 Stripe Checkout 的开发者体验
-
-依赖：
-
-- 当前 checkout API 已返回 URL，可直接实现
-
-#### 8.12 Production doctor
-
-命令：
-
-```bash
-clink production doctor
-```
-
-检查：
-
-- 是否仍使用 sandbox URL
-- 是否配置 production key
-- webhook endpoint 是否 HTTPS
-- 是否缺少 signing key
-- starter 中是否存在硬编码 secret
-
-#### 8.13 Webhook endpoint API 支持
-
-如果 ClinkBill 后端提供 API：
-
-```http
-POST /webhook-endpoints
-GET /webhook-endpoints
-DELETE /webhook-endpoints/{id}
-```
-
-CLI 可新增：
-
-```bash
-clink webhook create
-clink webhook list
-clink webhook delete
-```
-
-### P2：长期能力
-
-#### 8.14 Event trigger / replay
-
-如果 ClinkBill 后端提供 API：
-
-```http
-GET /events
-POST /events/{id}/replay
-POST /test/events/trigger
-```
-
-CLI 可新增：
-
-```bash
-clink events list
-clink events replay
-clink trigger order.succeeded
-```
-
-#### 8.15 MCP server
-
-为 AI Agent 提供正式工具层。
-
-能力：
-
-- 搜索文档
-- 创建 checkout session
-- 创建 product / price
-- 创建 subscription
-- 验证 webhook
-- 查询事件
-- 运行 doctor
-
-#### 8.16 Optional Dashboard automation
-
-在公开 API 暂不支持时，可以研究 OpenCLI 作为实验兜底。
-
-但必须满足：
-
-- 不进入核心路径
-- 不自动处理 MFA
-- 不自动读取生产 secret
-- 不自动点击高风险操作
-- 明确标注 experimental
-
-## 9. 非功能需求
-
-### 9.1 安全
-
-- 不打印真实 Secret Key
-- 不提交 `.env`
-- 不把 secret 写入 starter
-- dry-run 输出必须 mask key
-- 生产相关操作必须明确确认
-
-### 9.2 可维护性
-
-- 命令模块按领域拆分
-- API client 统一处理请求
-- OpenAPI 类型可刷新
-- starter 模板集中维护
-- 文档随命令变更同步更新
-
-### 9.3 AI 友好
-
-- 稳定 JSON 输出
-- 稳定 exit code
-- 命令 help 自描述
-- 避免交互式阻塞
-- 所有核心流程可脚本化
-
-### 9.4 开发者体验
-
-- 默认 sandbox
-- 支持 dry-run
-- 命令命名直观
-- 错误信息可读
-- README 示例可复制
-
-## 10. 成功指标
-
-### 10.1 开发效率指标
-
-- 新开发者完成第一个 checkout dry-run 时间小于 5 分钟
-- 新开发者生成 starter 时间小于 2 分钟
-- webhook 签名本地验证时间小于 5 分钟
-
-### 10.2 接入质量指标
-
-- webhook 签名错误相关支持问题减少
-- checkout payload 配置错误减少
-- sandbox 接入问题可以通过 `doctor` 初步定位
-
-### 10.3 AI Agent 指标
-
-- Agent 可以通过 CLI 完成 dry-run 验证
-- Agent 可以解析 JSON 输出
-- Agent 可以根据 exit code 判断失败类型
-- Agent 可以生成 starter 并运行测试
-
-### 10.4 产品采用指标
-
-- CLI 被纳入官方 Quickstart
-- CLI 被纳入 clink-integ-skills 推荐流程
-- 内部支持团队使用 CLI 复现商户问题
-
-## 11. 风险和限制
-
-### 11.1 公开 API 缺口
-
-当前部分 Dashboard 操作没有公开 API，例如：
-
-- 自动创建 API key
-- 自动注册 webhook endpoint
-- 自动注册 merchant
-- 自动完成生产审批
-
-这些能力不能仅靠 CLI 完成，需要后端产品化支持。
-
-### 11.2 Dashboard 自动化风险
-
-通过浏览器自动化 Dashboard 可以补一部分缺口，但存在：
-
-- 登录态不稳定
-- 页面结构变化
-- MFA 阻塞
-- secret 泄露风险
-- 高风险操作误触
-
-因此只能作为实验方向，不应进入默认路径。
-
-### 11.3 支付完成自动化边界
-
-CLI 可以打开 checkout URL，也可以在已有 payment instrument 和用户授权下调用支付能力。
-
-但 CLI 不应默认绕过：
-
-- 用户授权
-- 3DS
-- 钱包确认
-- 验证码
-- 风控拦截
-
-## 12. 发布计划
-
-### v0.1.0
-
-目标：完成可演示版本。
-
-内容：
-
-- 基础 CLI
-- checkout / product / price / subscription
-- webhook 本地工具
-- starter 生成
-- OpenAPI 类型
-- doctor / smoke-test
-- 测试和 exit code
-- 中文需求说明
-- PM PRD
-
-### v0.2.0
-
-目标：增强真实接入体验。
-
-候选：
-
-- `checkout create --open`
-- `production doctor`
-- 更多 starter
-- 更完整 OpenAPI 覆盖
-- CI examples
-
-### v0.3.0
-
-目标：向 AI-native integration 演进。
-
-候选：
-
-- MCP server
-- webhook endpoint API 支持
-- events replay / trigger
-- `clink listen`
-- production validation gate
-
-## 13. 结论
-
-`clink-dev-cli` 的第一阶段不应追求“完全替代 Dashboard”，而应优先建立一个稳定、可信、AI 可调用的技术接入工作流。
-
-短期价值是降低 ClinkBill checkout、subscription、webhook 的接入门槛。
-
-中期价值是将 ClinkBill 的开发者体验从“查文档 + 写代码 + 手动试错”升级为“CLI 驱动 + 本地验证 + AI 自动化”。
-
-长期价值是为 ClinkBill 建立与 AI Agent 深度集成的支付基础设施入口。
-
+验收通过条件：
+
+- AI 能获得 UAT 身份
+- AI 能获得或创建 Secret Key / Publishable Key
+- AI 能把 key 写入项目配置
+- AI 能创建 checkout session
+- AI 能创建 subscription
+- AI 能创建并启用 webhook endpoint
+- AI 能获得 webhook signing secret
+- AI 能启动公网 listen/tunnel
+- AI 能触发测试事件
+- AI 能收到真实 webhook
+- AI 能完成签名校验
+- AI 能查询 event 和 delivery
+- 如果失败，AI 能拿到明确失败原因
+
+## 9. 近期实施顺序
+
+1. 修复或查明真实事件 `delivery` 为空的问题。
+2. 设计并实现 Agent Session API。
+3. 设计并实现 API Key Ensure API。
+4. 设计并实现 Webhook Endpoint API。
+5. 增加 Events / Delivery / Replay / Logs API。
+6. 增加 Trigger API。
+7. 在 CLI 中实现 `clink setup uat --run-smoke-test --json`。
+
+这 7 步完成后，原始提示词才能真正升级成“AI 全流程自动接入 ClinkBill”。

@@ -6,13 +6,36 @@ This CLI is designed for AI-assisted and Dashboard-light integration workflows. 
 
 ## Install
 
+Install the CLI directly from GitHub:
+
+```bash
+npm install -g github:5048429/clink-dev-cli
+clink --help
+```
+
+If global installs are not available in the agent/runtime environment, install it into a project-local tools directory:
+
+```bash
+npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+./.clink-tools/node_modules/.bin/clink --help
+```
+
+On Windows PowerShell, the local binary path is:
+
+```powershell
+.\.clink-tools\node_modules\.bin\clink.cmd --help
+```
+
+During CLI development in this repository:
+
 ```bash
 npm install
 npm run build
-node dist/index.js --help
+npm link
+clink --help
 ```
 
-During local development:
+Run without linking when debugging source changes:
 
 ```bash
 npm run dev -- --help
@@ -24,6 +47,7 @@ Validate changes before handoff:
 npm run check
 npm run build
 npm test
+npm run pack:dry-run
 ```
 
 ## Configure
@@ -44,19 +68,91 @@ Sandbox is the default environment and maps to:
 https://uat-api.clinkbill.com/api/
 ```
 
+### Dashboard Console Login
+
+Use `clink login` when a workflow needs the UAT Dashboard Console identity, for example calling Dashboard internal APIs during MVP validation:
+
+```bash
+clink login
+clink dashboard whoami
+clink dashboard whoami --json
+```
+
+`clink login` opens `https://uat-dashboard.clinkbill.com/auth/login` with Playwright. The CLI does not type credentials, bypass MFA, or solve CAPTCHA. After you finish login in the browser, it captures the Dashboard `/platform/user/getInfo` request headers, verifies the identity with:
+
+```http
+GET https://uat-dashboard.clinkbill.com/prod-api/platform/user/getInfo
+Authorization: Bearer <token>
+ClientID: <clientId>
+Accept-Language: zh_CN
+Content-Language: zh_CN
+```
+
+Then it saves the Dashboard base URL, ClientID, access token, and a user summary in the selected local profile. CLI output always masks the access token. `clink dashboard whoami --dry-run --json` prints the request metadata with `Authorization: Bearer [masked]`.
+
+By default `clink login` tries an installed Chrome or Edge browser before falling back to Playwright's bundled Chromium. You can force a channel when debugging:
+
+```bash
+clink login --browser-channel chrome
+clink login --browser-channel msedge
+```
+
+After login, resolve the current UAT Dashboard Secret Key and save it for Clink API calls:
+
+```bash
+clink dashboard apikey list --json
+clink dashboard apikey ensure-secret --save --json
+```
+
+`dashboard apikey ensure-secret` first calls the Dashboard API key list endpoint. If a Secret Key already exists, it uses that key. If no Secret Key exists, it initializes the Dashboard standard Publishable Key and Secret Key pair. Secret values are masked by default; pass `--show-secret` only when you intentionally need the raw value in the terminal.
+
+### Dashboard Webhook Setup
+
+After `clink login`, the CLI can also configure UAT Dashboard webhook endpoints with the saved Dashboard token:
+
+```bash
+clink dashboard merchant list --json
+clink dashboard webhook events
+clink dashboard webhook list --json
+
+clink dashboard webhook ensure \
+  --url https://your-public-host.example.com/api/clink/webhook \
+  --events core \
+  --save-secret \
+  --json
+
+clink dashboard webhook update wh_xxx \
+  --url https://new-public-host.example.com/api/clink/webhook \
+  --events core \
+  --save-secret
+
+clink dashboard webhook enable wh_xxx
+clink dashboard webhook disable wh_xxx
+```
+
+`dashboard webhook ensure` first lists the current merchant's endpoints. If the URL already exists, it updates the selected events or remark when needed. If it does not exist, it creates the endpoint. Created and updated endpoints are enabled by default; pass `--disabled` only when you intentionally want to leave one disabled. Use `dashboard webhook update <webhook-key-id>` when a local tunnel URL changes and you want to reuse the existing Dashboard webhook record instead of creating another one. The returned signing key is masked by default; `--save-secret` stores it in the current local profile for `clink webhook simulate/sign/verify`, and `--show-secret` prints the raw value only when you explicitly ask for it.
+
+If your Dashboard account can access multiple merchants, pass `--merchant-id mcht_xxx`. Dashboard requires webhook endpoint URLs to start with `https://`, so local testing normally needs a tunnel or deployed callback URL. The CLI accepts readable event names such as `order.succeeded`, but submits the Dashboard numeric event codes used by the UAT webhook sender. The current UAT Dashboard backend rejects very long comma-separated event lists; use `--events core` or a shorter explicit list instead of `all`.
+
 ## MVP Commands
 
 ```bash
+clink login
+clink dashboard whoami
+clink dashboard apikey ensure-secret --save
+clink dashboard webhook ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret
+
 clink auth set --api-key env:CLINK_SECRET_KEY --env sandbox
 clink auth status
 
-clink product create --name "Starter" --image-id oss_xxx --tax-category software_service
+clink product create --name "Starter" --image-id oss_xxx --tax-category software_service --amount 9.99 --currency USD --type recurring --interval month --default
 clink product list
 
 clink price create --product-id prd_xxx --amount 9.99 --currency USD --type recurring --interval month
 clink price list --product-id prd_xxx
 
 clink checkout create --customer-email test@example.com --amount 19.99 --currency USD --name "Test Product" --success-url http://localhost:3000/success --cancel-url http://localhost:3000/cancel
+clink checkout create --customer-email test@example.com --amount 9.99 --currency USD --product-id prd_xxx --price-id price_xxx --success-url http://localhost:3000/success --cancel-url http://localhost:3000/cancel
 
 clink subscription create --customer-email test@example.com --product-id prd_xxx --price-id price_xxx --payment-instrument-id pi_xxx --payment-method-type CARD --payment-currency USD --return-url http://localhost:3000/account
 
@@ -65,6 +161,51 @@ clink webhook simulate order.succeeded --secret env:CLINK_WEBHOOK_SIGNING_KEY --
 clink doctor
 clink smoke-test
 ```
+
+`product create --json` promotes the useful IDs to the top level so agents do not need to dig through the raw API response:
+
+```json
+{
+  "productId": "prd_xxx",
+  "defaultPrice": "price_xxx",
+  "initialPriceId": "price_xxx",
+  "checkoutCommand": "clink checkout create ..."
+}
+```
+
+## Checkout Sessions
+
+Checkout is the payment entry point. The CLI supports both price sources from the official quickstart.
+
+Use an existing Dashboard product and price:
+
+```bash
+clink checkout create \
+  --customer-email buyer@example.com \
+  --amount 10 \
+  --currency USD \
+  --product-id prd_xxx \
+  --price-id price_xxx \
+  --success-url https://your-site.com/success \
+  --cancel-url https://your-site.com/cancel \
+  --json
+```
+
+Use inline price data for a one-time order:
+
+```bash
+clink checkout create \
+  --customer-email buyer@example.com \
+  --amount 10 \
+  --currency USD \
+  --name "A One-time purchase" \
+  --quantity 1 \
+  --success-url https://your-site.com/success \
+  --cancel-url https://your-site.com/cancel \
+  --json
+```
+
+For inline price data, `--amount` must equal `--unit-amount * --quantity`. If `--unit-amount` is omitted, the CLI uses `amount / quantity`. Add `--open` to open the hosted checkout URL after creation.
 
 ## Framework Starters
 
@@ -133,8 +274,10 @@ clink checkout create ... --json
 ## Project Docs
 
 - [Requirements](docs/requirements.md)
+- [Agent CLI install guide](docs/agent-cli-install.zh-CN.md)
 - [中文需求说明](docs/requirements.zh-CN.md)
 - [产品需求文档](docs/product-requirements.zh-CN.md)
+- [最小 MVP：AI 生成 UAT Secret Key 并接入支付](docs/mvp-agent-secret-key-api.zh-CN.md)
 - [Roadmap](docs/roadmap.md)
 - [Agent workflow](docs/agent-workflow.md)
 - [Exit codes](docs/exit-codes.md)

@@ -79,13 +79,20 @@ export class ClinkApiClient {
       } as T;
     }
 
-    const response = await fetch(url, { method, headers, body });
+    let response: Response;
+    try {
+      response = await fetch(url, { method, headers, body });
+    } catch (error) {
+      throw new Error(`Clink API ${method} ${url.pathname} network error: ${formatFetchError(error)}`);
+    }
     const text = await response.text();
     const data = parseResponseBody(text);
 
     if (!response.ok) {
       throw new Error(`Clink API ${method} ${url.pathname} failed with ${response.status}: ${text}`);
     }
+
+    assertSuccessfulApiEnvelope(method, url.pathname, data);
 
     return data as T;
   }
@@ -106,4 +113,25 @@ function parseResponseBody(text: string): unknown {
   } catch {
     return text;
   }
+}
+
+function assertSuccessfulApiEnvelope(method: string, path: string, data: unknown): void {
+  if (!data || typeof data !== "object") return;
+  const envelope = data as { code?: unknown; msg?: unknown };
+  if (typeof envelope.code !== "number" || envelope.code === 200) return;
+  const message = typeof envelope.msg === "string" ? envelope.msg : JSON.stringify(data);
+  throw new Error(`Clink API ${method} ${path} returned code ${envelope.code}: ${message}`);
+}
+
+function formatFetchError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause;
+  if (cause && typeof cause === "object") {
+    const code = "code" in cause && typeof cause.code === "string" ? cause.code : undefined;
+    const host = "host" in cause && typeof cause.host === "string" ? cause.host : undefined;
+    const port = "port" in cause && (typeof cause.port === "number" || typeof cause.port === "string") ? String(cause.port) : undefined;
+    const details = [code, host ? `host=${host}` : undefined, port ? `port=${port}` : undefined].filter(Boolean).join(" ");
+    return details ? `${error.message} (${details})` : error.message;
+  }
+  return error.message;
 }

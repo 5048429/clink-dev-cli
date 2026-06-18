@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { registerAuth } from "./commands/auth.js";
 import { registerCheckout } from "./commands/checkout.js";
+import { registerDashboard } from "./commands/dashboard.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerInit } from "./commands/init.js";
+import { registerLogin } from "./commands/login.js";
 import { registerPrice } from "./commands/price.js";
 import { registerProduct } from "./commands/product.js";
 import { registerSmokeTest } from "./commands/smoke-test.js";
@@ -39,6 +41,8 @@ async function main(): Promise<void> {
   });
 
   registerAuth(program);
+  registerLogin(program);
+  registerDashboard(program);
   registerInit(program);
   registerProduct(program);
   registerPrice(program);
