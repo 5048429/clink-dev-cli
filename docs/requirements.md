@@ -23,7 +23,7 @@ The CLI is not a replacement for merchant account registration, MFA, production 
 
 The first release should support:
 
-- profile and API key configuration
+- profile and API key configuration, including `clink auth secret set` for sandbox environments where browser login is unavailable
 - sandbox-first API calls
 - product creation and listing
 - price creation and listing
@@ -39,6 +39,7 @@ The first release should support:
 - production onboarding
 - merchant account creation
 - API key generation
+- requiring browser automation for merchants that already have a sandbox Secret Key
 - hosted webhook relay
 - remote event replay
 - direct replacement for the existing customer wallet CLI
@@ -53,4 +54,16 @@ Future versions should add:
 - OpenAPI-generated typed client
 - official MCP server integration
 - framework-specific code generation for Laravel, Rails, and other server stacks
+
+## Sandbox Authentication Flow
+
+The primary sandbox flow is Dashboard-less:
+
+```bash
+export CLINK_SECRET_KEY=sk_test_xxx
+clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox
+clink auth status
+```
+
+After this, product, price, checkout, subscription, doctor, smoke-test, and local webhook commands use the configured Secret Key. `clink login` and Dashboard Console APIs are optional fallback tools for Dashboard-only operations, not prerequisites for normal Secret Key authentication.
 

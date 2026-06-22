@@ -52,15 +52,24 @@ npm run pack:dry-run
 
 ## Configure
 
-Prefer environment-variable references instead of storing secrets directly:
+### Sandbox Without Browser
+
+If you already have a ClinkBill sandbox Secret Key, you do not need `clink login` or Playwright. Store the key in the CLI profile and all public API commands will authenticate with `X-API-KEY`:
 
 ```bash
 export CLINK_SECRET_KEY=sk_test_xxx
-export CLINK_WEBHOOK_SIGNING_KEY=whsec_xxx
 
-clink auth set --api-key env:CLINK_SECRET_KEY --env sandbox
+clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox
 clink auth status
 ```
+
+You can also pass a literal key when an environment variable is not available:
+
+```bash
+clink auth secret set --api-key sk_test_xxx --env sandbox
+```
+
+Literal keys are stored in the local profile file, so `env:CLINK_SECRET_KEY` is still preferred for shared machines, CI logs, and AI-agent workflows. CLI output masks Secret Keys by default.
 
 Sandbox is the default environment and maps to:
 
@@ -68,9 +77,16 @@ Sandbox is the default environment and maps to:
 https://uat-api.clinkbill.com/api/
 ```
 
+Webhook signing keys are configured separately because they are used only for local webhook signing and verification:
+
+```bash
+export CLINK_WEBHOOK_SIGNING_KEY=whsec_xxx
+clink auth set --webhook-secret env:CLINK_WEBHOOK_SIGNING_KEY --env sandbox
+```
+
 ### Dashboard Console Login
 
-Use `clink login` when a workflow needs the UAT Dashboard Console identity, for example calling Dashboard internal APIs during MVP validation:
+Use `clink login` only when a workflow needs the UAT Dashboard Console identity, for example calling Dashboard internal APIs during MVP validation. It is optional for normal product, price, checkout, subscription, doctor, smoke-test, and local webhook commands when a Secret Key is already configured:
 
 ```bash
 clink login
@@ -97,7 +113,7 @@ clink login --browser-channel chrome
 clink login --browser-channel msedge
 ```
 
-After login, resolve the current UAT Dashboard Secret Key and save it for Clink API calls:
+After login, you may resolve the current UAT Dashboard Secret Key and save it for Clink API calls. This is a fallback for Dashboard-assisted validation, not required when you manually configured a Secret Key with `clink auth secret set`:
 
 ```bash
 clink dashboard apikey list --json
@@ -137,12 +153,8 @@ If your Dashboard account can access multiple merchants, pass `--merchant-id mch
 ## MVP Commands
 
 ```bash
-clink login
-clink dashboard whoami
-clink dashboard apikey ensure-secret --save
-clink dashboard webhook ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret
-
-clink auth set --api-key env:CLINK_SECRET_KEY --env sandbox
+export CLINK_SECRET_KEY=sk_test_xxx
+clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox
 clink auth status
 
 clink product create --name "Starter" --image-id oss_xxx --tax-category software_service --amount 9.99 --currency USD --type recurring --interval month --default
@@ -160,6 +172,15 @@ clink webhook simulate order.succeeded --secret env:CLINK_WEBHOOK_SIGNING_KEY --
 
 clink doctor
 clink smoke-test
+```
+
+Dashboard-assisted operations remain available when needed:
+
+```bash
+clink login
+clink dashboard whoami
+clink dashboard apikey ensure-secret --save
+clink dashboard webhook ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret
 ```
 
 `product create --json` promotes the useful IDs to the top level so agents do not need to dig through the raw API response:

@@ -175,10 +175,10 @@ Do not implement these commands until the adapter is approved. If implemented la
 
 ### API Key Initialization
 
-- Current state: Dashboard-only. CLI can store an existing key with `clink auth set --api-key env:CLINK_SECRET_KEY`.
+- Current state: Dashboard-only for key creation. CLI can store an existing key without any browser step using `clink auth secret set --api-key env:CLINK_SECRET_KEY`.
 - Allowed OpenCLI behavior: navigate to Developers -> API Keys and display instructions.
 - Forbidden behavior: clicking Initialize Key, reading the one-time key, copying it from DOM/clipboard, writing it to shell history, config, `.env`, logs, screenshots, or JSON output.
-- Required user action: the human initializes, copies, and stores the key outside the agent; the CLI only references `env:CLINK_SECRET_KEY`.
+- Required user action: the human initializes, copies, and stores the key outside the agent; the CLI only references it through `env:CLINK_SECRET_KEY` or an explicitly provided literal key.
 
 ### Webhook Signing Key Viewing
 
