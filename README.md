@@ -296,6 +296,7 @@ clink checkout create ... --json
 
 - [Requirements](docs/requirements.md)
 - [Agent CLI install guide](docs/agent-cli-install.zh-CN.md)
+- [CLI 更新与发布操作指南](docs/cli-release-runbook.zh-CN.md)
 - [中文需求说明](docs/requirements.zh-CN.md)
 - [产品需求文档](docs/product-requirements.zh-CN.md)
 - [最小 MVP：AI 生成 UAT Secret Key 并接入支付](docs/mvp-agent-secret-key-api.zh-CN.md)
