@@ -19,6 +19,15 @@ export function registerProduct(program: Command): void {
   const product = program.command("product").description("Create and list Clink products");
 
   product
+    .command("get <product-id>")
+    .description("Get product details")
+    .action(async (productId: string, command: Command) => {
+      const { config, client } = await getCommandContext(command);
+      const result = await client.get(`/product/${encodeURIComponent(productId)}`);
+      printResult(result, config.outputMode);
+    });
+
+  product
     .command("create")
     .description("Create a product with its initial price. Use --image-file to upload a product image first.")
     .requiredOption("--name <name>", "Product name")

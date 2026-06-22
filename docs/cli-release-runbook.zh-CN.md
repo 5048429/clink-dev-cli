@@ -256,13 +256,18 @@ clink <command> --help
 
 ### 低代码/沙箱环境要求 webhook signing key
 
-正确流程：
+当前边界：
+
+- 公开 Clink API 命令应优先使用 `CLINK_SECRET_KEY`，不要要求浏览器登录。
+- 但截至当前官方 OpenAPI，webhook endpoint 管理不在 Secret Key API 覆盖内。
+- 因此 `clink dashboard webhook ensure/list/create/update/enable/disable` 仍需要 Dashboard Console token，也就是 `clink login`。
+
+如果未来 ClinkBill 发布 Secret Key-compatible webhook management API，正确流程应更新为：
 
 1. 先让用户提供 `CLINK_SECRET_KEY`。
-2. agent 用 CLI 配置 webhook endpoint。
+2. agent 用 CLI 通过官方 Secret Key API 配置 webhook endpoint。
 3. agent 使用 `--show-secret` 获取 signing key。
 4. agent 写入平台 Secret `CLINK_WEBHOOK_SIGNING_KEY`。
 5. 重新部署/重启。
 
-不要一开始就让用户同时提供 `CLINK_SECRET_KEY` 和 `CLINK_WEBHOOK_SIGNING_KEY`。
-
+在该官方 API 发布前，不要让提示词承诺“无浏览器环境一定能自动配置 Dashboard webhook”。也不要一开始就让用户同时提供 `CLINK_SECRET_KEY` 和 `CLINK_WEBHOOK_SIGNING_KEY`；正确说法是：Secret Key 可用于公开支付 API，Dashboard webhook 管理当前仍需要本地浏览器登录或人工配置。

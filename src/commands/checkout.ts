@@ -12,6 +12,15 @@ export function registerCheckout(program: Command): void {
   const checkout = program.command("checkout").description("Create checkout sessions");
 
   checkout
+    .command("get <session-id>")
+    .description("Get checkout session details")
+    .action(async (sessionId: string, command: Command) => {
+      const { config, client } = await getCommandContext(command);
+      const result = await client.get(`/checkout/session/${encodeURIComponent(sessionId)}`);
+      printResult(result, config.outputMode);
+    });
+
+  checkout
     .command("create")
     .description("Create a checkout session using either product/price IDs or inline price data")
     .option("--customer-id <id>", "Existing Clink customer ID")

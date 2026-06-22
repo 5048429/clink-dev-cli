@@ -3,14 +3,19 @@ import { Command, CommanderError } from "commander";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { registerApi } from "./commands/api.js";
 import { registerAuth } from "./commands/auth.js";
+import { registerBilling } from "./commands/billing.js";
 import { registerCheckout } from "./commands/checkout.js";
 import { registerDashboard } from "./commands/dashboard.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerInit } from "./commands/init.js";
 import { registerLogin } from "./commands/login.js";
+import { registerOrder } from "./commands/order.js";
+import { registerPayment } from "./commands/payment.js";
 import { registerPrice } from "./commands/price.js";
 import { registerProduct } from "./commands/product.js";
+import { registerRefund } from "./commands/refund.js";
 import { registerSmokeTest } from "./commands/smoke-test.js";
 import { registerSubscription } from "./commands/subscription.js";
 import { registerWebhook } from "./commands/webhook.js";
@@ -40,13 +45,18 @@ async function main(): Promise<void> {
     },
   });
 
+  registerApi(program);
   registerAuth(program);
   registerLogin(program);
   registerDashboard(program);
   registerInit(program);
+  registerBilling(program);
   registerProduct(program);
   registerPrice(program);
   registerCheckout(program);
+  registerOrder(program);
+  registerRefund(program);
+  registerPayment(program);
   registerSubscription(program);
   registerWebhook(program);
   registerDoctor(program);

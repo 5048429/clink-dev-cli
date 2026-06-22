@@ -2,10 +2,19 @@ import type { Command } from "commander";
 import type { SubscriptionCreatePayload, SubscriptionCreateResponse } from "../api/openapi-types.js";
 import { curlForJsonRequest } from "../curl.js";
 import { printResult } from "../output.js";
-import { buildUrl, getCommandContext, parseMetadata } from "./helpers.js";
+import { buildUrl, collect, getCommandContext, parseMetadata } from "./helpers.js";
 
 export function registerSubscription(program: Command): void {
   const subscription = program.command("subscription").description("Create and manage subscriptions");
+
+  subscription
+    .command("get <subscription-id>")
+    .description("Get subscription details")
+    .action(async (subscriptionId: string, command: Command) => {
+      const { config, client } = await getCommandContext(command);
+      const result = await client.get(`/subscription/${encodeURIComponent(subscriptionId)}`);
+      printResult(result, config.outputMode);
+    });
 
   subscription
     .command("create")
@@ -59,9 +68,33 @@ export function registerSubscription(program: Command): void {
         "Subscription create request completed. Use --json to view the full response and curl example.",
       );
     });
-}
 
-function collect(value: string, previous: string[]): string[] {
-  previous.push(value);
-  return previous;
+  subscription
+    .command("cancel <subscription-id>")
+    .description("Cancel a subscription")
+    .requiredOption("--reason <reason>", "Cancellation reason")
+    .option("--reason-code <code>", "Cancel reason code, for example no_longer_needed")
+    .option("--immediately", "Cancel immediately without refund")
+    .action(async (
+      subscriptionId: string,
+      options: { reason: string; reasonCode?: string; immediately?: boolean },
+      command: Command,
+    ) => {
+      const { config, client } = await getCommandContext(command);
+      const path = `/subscription/${encodeURIComponent(subscriptionId)}/cancel`;
+      const body = {
+        reason: options.reason,
+        cancelReasonCode: options.reasonCode,
+        cancelImmediately: Boolean(options.immediately),
+      };
+      const result = await client.post(path, { body });
+      printResult(
+        {
+          result,
+          curl: curlForJsonRequest("POST", buildUrl(config.baseUrl, path), body),
+        },
+        config.outputMode,
+        "Subscription cancel request completed. Use --json to view the full response and curl example.",
+      );
+    });
 }

@@ -42,11 +42,11 @@ clink --version
 clink auth status --json
 ```
 
-2. 如果已有 Secret Key，把它写入环境变量并保存到 CLI profile：
+2. 如果已有 Secret Key，把它写入环境变量并保存到 CLI profile。官方公开 API 命令会使用 `X-API-KEY` + `X-Timestamp`，不需要浏览器登录：
 
 ```bash
 export CLINK_SECRET_KEY=sk_uat_xxx
-clink auth set --api-key env:CLINK_SECRET_KEY --env sandbox
+clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox
 ```
 
 3. 如果没有 Secret Key，在 UAT Dashboard 登录后让 CLI 创建或读取 key：
@@ -72,7 +72,10 @@ clink checkout create \
 
 5. 配置 webhook endpoint：
 
+注意：截至当前官方 OpenAPI，webhook endpoint 创建/更新/启用还不是 Secret Key 公开 API。`clink dashboard webhook ensure` 仍然属于 Dashboard-only 命令，需要先 `clink login` 获取 Dashboard Console token。没有浏览器的云环境/沙箱不能只靠 `CLINK_SECRET_KEY` 完成这一步。
+
 ```bash
+clink login
 clink dashboard webhook ensure \
   --url https://your-public-host.example.com/clink/webhook \
   --events core \
@@ -117,11 +120,12 @@ Windows PowerShell 使用：
   .\.clink-tools\node_modules\.bin\clink.cmd
 
 之后用 clink 完成：
-1. clink login
-2. clink dashboard apikey ensure-secret --save --json
+1. 如果已有 Secret Key：clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox
+2. 如果没有 Secret Key 且本地有浏览器：clink login && clink dashboard apikey ensure-secret --save --json
 3. clink checkout create ... --json
-4. clink dashboard webhook ensure --url <public-webhook-url> --events core --save-secret --json
-5. clink webhook simulate order.succeeded --forward-to <local-or-public-webhook-url> --json
+4. clink api request GET /order --query pageNum=1 --query pageSize=20 --json
+5. 如需 Dashboard webhook 自动配置且本地有浏览器：clink dashboard webhook ensure --url <public-webhook-url> --events core --save-secret --json
+6. clink webhook simulate order.succeeded --forward-to <local-or-public-webhook-url> --json
 
 所有涉及 Secret Key、Dashboard token、webhook signing key 的输出都必须打码，不要写入源码。
 ```

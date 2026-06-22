@@ -729,7 +729,9 @@ export function registerDashboard(program: Command): void {
 
 function requireDashboardProfile(profile: DashboardConsoleProfile | undefined): DashboardConsoleProfile {
   if (!profile?.accessToken || !profile.clientId || !profile.baseUrl) {
-    throw new Error("Missing Dashboard Console token. Run clink login first.");
+    throw new Error(
+      "Missing Dashboard Console token. Current official Secret Key API coverage does not include Dashboard webhook management; use public API commands with CLINK_SECRET_KEY where available, or run clink login for Dashboard-only commands.",
+    );
   }
   return profile;
 }

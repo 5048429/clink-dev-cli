@@ -6,13 +6,23 @@ import type {
   PriceListResponse,
 } from "../api/openapi-types.js";
 import { DEFAULT_PAGE_SIZE } from "../constants.js";
+import { curlForJsonRequest } from "../curl.js";
 import { parseNumberOption, printResult } from "../output.js";
-import { getCommandContext } from "./helpers.js";
+import { buildUrl, getCommandContext, readJsonInput } from "./helpers.js";
 
 type PriceRecurringDetails = NonNullable<PriceCreatePayload["recurringDetails"]>;
 
 export function registerPrice(program: Command): void {
   const price = program.command("price").description("Create and list Clink prices");
+
+  price
+    .command("get <price-id>")
+    .description("Get price details")
+    .action(async (priceId: string, command: Command) => {
+      const { config, client } = await getCommandContext(command);
+      const result = await client.get(`/price/${encodeURIComponent(priceId)}`);
+      printResult(result, config.outputMode);
+    });
 
   price
     .command("create")
@@ -78,5 +88,28 @@ export function registerPrice(program: Command): void {
         query,
       });
       printResult(result, config.outputMode);
+    });
+
+  price
+    .command("update <price-id>")
+    .description("Update a price. Provide the official API JSON payload with --data or --data-file.")
+    .option("--data <json>", "Update price JSON payload")
+    .option("--data-file <path>", "Read JSON payload from a file")
+    .action(async (priceId: string, options: { data?: string; dataFile?: string }, command: Command) => {
+      const { config, client } = await getCommandContext(command);
+      const body = await readJsonInput(options);
+      if (body === undefined) {
+        throw new Error("Missing required option: --data or --data-file");
+      }
+      const path = `/price/${encodeURIComponent(priceId)}`;
+      const result = await client.put(path, { body });
+      printResult(
+        {
+          result,
+          curl: curlForJsonRequest("PUT", buildUrl(config.baseUrl, path), body),
+        },
+        config.outputMode,
+        "Price update request completed. Use --json to view the full response and curl example.",
+      );
     });
 }

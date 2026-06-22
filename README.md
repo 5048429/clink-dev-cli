@@ -54,7 +54,7 @@ npm run pack:dry-run
 
 ### Sandbox Without Browser
 
-If you already have a ClinkBill sandbox Secret Key, you do not need `clink login` or Playwright. Store the key in the CLI profile and all public API commands will authenticate with `X-API-KEY`:
+If you already have a ClinkBill sandbox Secret Key, you do not need `clink login` or Playwright for official public API work. Store the key in the CLI profile and all public API commands will authenticate with `X-API-KEY`:
 
 ```bash
 export CLINK_SECRET_KEY=sk_test_xxx
@@ -86,7 +86,7 @@ clink auth set --webhook-secret env:CLINK_WEBHOOK_SIGNING_KEY --env sandbox
 
 ### Dashboard Console Login
 
-Use `clink login` only when a workflow needs the UAT Dashboard Console identity, for example calling Dashboard internal APIs during MVP validation. It is optional for normal product, price, checkout, subscription, doctor, smoke-test, and local webhook commands when a Secret Key is already configured:
+Use `clink login` only when a workflow needs the UAT Dashboard Console identity, for example calling Dashboard internal APIs during MVP validation. It is optional for product, price, checkout, subscription, order, refund, payment, billing portal, `api request`, doctor, smoke-test, and local webhook commands when a Secret Key is already configured:
 
 ```bash
 clink login
@@ -150,6 +150,8 @@ clink dashboard webhook disable wh_xxx
 
 If your Dashboard account can access multiple merchants, pass `--merchant-id mcht_xxx`. Dashboard requires webhook endpoint URLs to start with `https://`, so local testing normally needs a tunnel or deployed callback URL. The CLI accepts readable event names such as `order.succeeded`, but submits the Dashboard numeric event codes used by the UAT webhook sender. The current UAT Dashboard backend rejects very long comma-separated event lists; use `--events core` or a shorter explicit list instead of `all`.
 
+Important Secret Key boundary: the current official OpenAPI spec covers payment, checkout, product, price, subscription, order, refund, payment instrument, billing portal, coupon, promotion code, and test-clock APIs, but it does not expose a webhook endpoint management API. Therefore `clink dashboard webhook ensure/list/create/update/enable/disable` still requires `clink login` until ClinkBill publishes a Secret Key-compatible webhook management endpoint. Use `clink api request` for any official OpenAPI path that does not yet have a dedicated CLI wrapper.
+
 ## MVP Commands
 
 ```bash
@@ -165,8 +167,25 @@ clink price list --product-id prd_xxx
 
 clink checkout create --customer-email test@example.com --amount 19.99 --currency USD --name "Test Product" --success-url http://localhost:3000/success --cancel-url http://localhost:3000/cancel
 clink checkout create --customer-email test@example.com --amount 9.99 --currency USD --product-id prd_xxx --price-id price_xxx --success-url http://localhost:3000/success --cancel-url http://localhost:3000/cancel
+clink checkout get sess_xxx
 
 clink subscription create --customer-email test@example.com --product-id prd_xxx --price-id price_xxx --payment-instrument-id pi_xxx --payment-method-type CARD --payment-currency USD --return-url http://localhost:3000/account
+clink subscription get sub_xxx
+clink subscription cancel sub_xxx --reason "No longer needed"
+
+clink order list --page 1 --page-size 20
+clink order get order_xxx
+
+clink refund create --order-id order_xxx --refund-merchant-order-id refund_merchant_xxx --amount 9.99
+clink refund get rfd_xxx
+
+clink billing portal-session --customer-id cus_xxx --return-url https://your-site.com/account
+
+clink payment create --data '{"customerEmail":"test@example.com","paymentInstrumentId":"pi_xxx","paymentMethodType":"CARD","amount":9.99,"currency":"USD","returnUrl":"https://your-site.com/payment/return"}'
+clink payment instrument create --data '{"customerEmail":"test@example.com","paymentInstrumentType":"GCASH"}'
+
+clink api request GET /order --query pageNum=1 --query pageSize=20
+clink api request POST /refund --data '{"orderId":"order_xxx","refundMerchantOrderId":"refund_merchant_xxx","refundAmount":9.99}'
 
 clink webhook simulate order.succeeded --secret env:CLINK_WEBHOOK_SIGNING_KEY --forward-to http://localhost:3000/api/clink/webhook
 

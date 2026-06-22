@@ -1,0 +1,59 @@
+import type { Command } from "commander";
+import { curlForJsonRequest } from "../curl.js";
+import { printResult } from "../output.js";
+import { buildUrl, collect, getCommandContext, parseQuery, readJsonInput } from "./helpers.js";
+
+type ApiMethod = "GET" | "POST" | "PUT" | "DELETE";
+
+export function registerApi(program: Command): void {
+  const api = program
+    .command("api")
+    .description("Call official Clink API endpoints with CLINK_SECRET_KEY authentication");
+
+  api
+    .command("request <method> <path>")
+    .description("Call any official Clink API path using X-API-KEY and X-Timestamp")
+    .option("--data <json>", "JSON request body")
+    .option("--data-file <path>", "Read JSON request body from a file")
+    .option("--query <key=value...>", "Query parameter", collect, [])
+    .action(async (
+      methodInput: string,
+      path: string,
+      options: { data?: string; dataFile?: string; query: string[] },
+      command: Command,
+    ) => {
+      const { config, client } = await getCommandContext(command);
+      const method = parseMethod(methodInput);
+      const query = parseQuery(options.query);
+      const body = await readJsonInput(options);
+      if ((method === "GET" || method === "DELETE") && body !== undefined) {
+        throw new Error(`${method} requests cannot include --data or --data-file`);
+      }
+
+      const result = await client.request(method, normalizePath(path), { query, body });
+      printResult(
+        {
+          method,
+          path: normalizePath(path),
+          result,
+          curl: method === "GET" || method === "DELETE"
+            ? undefined
+            : curlForJsonRequest(method, buildUrl(config.baseUrl, path, query), body),
+        },
+        config.outputMode,
+        `Clink API ${method} ${normalizePath(path)} completed. Use --json to view the full response.`,
+      );
+    });
+}
+
+function parseMethod(value: string): ApiMethod {
+  const method = value.toUpperCase();
+  if (method === "GET" || method === "POST" || method === "PUT" || method === "DELETE") {
+    return method;
+  }
+  throw new Error(`Unsupported API method "${value}". Use GET, POST, PUT, or DELETE.`);
+}
+
+function normalizePath(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
+}

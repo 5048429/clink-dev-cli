@@ -13,6 +13,13 @@ export interface RequestOptions<TBody = unknown, TQuery extends object = Record<
 export class ClinkApiClient {
   constructor(private readonly config: RuntimeConfig) {}
 
+  async delete<T = unknown, TQuery extends object = Record<string, QueryValue>>(
+    path: string,
+    options: RequestOptions<never, TQuery> = {},
+  ): Promise<T> {
+    return this.request<T, never, TQuery>("DELETE", path, options);
+  }
+
   async get<T = unknown, TQuery extends object = Record<string, QueryValue>>(
     path: string,
     options: RequestOptions<never, TQuery> = {},
