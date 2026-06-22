@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { registerApi } from "./commands/api.js";
 import { registerAuth } from "./commands/auth.js";
 import { registerBilling } from "./commands/billing.js";
+import { registerCatalog } from "./commands/catalog.js";
 import { registerCheckout } from "./commands/checkout.js";
 import { registerDashboard } from "./commands/dashboard.js";
 import { registerDoctor } from "./commands/doctor.js";
@@ -47,6 +48,7 @@ async function main(): Promise<void> {
 
   registerApi(program);
   registerAuth(program);
+  registerCatalog(program);
   registerLogin(program);
   registerDashboard(program);
   registerInit(program);

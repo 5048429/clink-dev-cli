@@ -27,6 +27,7 @@ The first release should support:
 - sandbox-first API calls
 - product creation and listing
 - price creation and listing
+- agent-produced product catalog validation, planning, and import with local sourceId mapping
 - checkout session creation with inline one-time product data
 - subscription creation with existing product, price, and payment instrument IDs
 - local webhook event simulation with Clink-compatible HMAC signing
@@ -40,6 +41,7 @@ The first release should support:
 - merchant account creation
 - API key generation
 - requiring browser automation for merchants that already have a sandbox Secret Key
+- built-in website crawling or pricing-page scraping; agents should produce catalog JSON and the CLI should import it deterministically
 - hosted webhook relay
 - remote event replay
 - direct replacement for the existing customer wallet CLI
@@ -66,4 +68,16 @@ clink auth status
 ```
 
 After this, product, price, checkout, subscription, doctor, smoke-test, and local webhook commands use the configured Secret Key. `clink login` and Dashboard Console APIs are optional fallback tools for Dashboard-only operations, not prerequisites for normal Secret Key authentication.
+
+## Catalog Import Flow
+
+Website scanning is an agent responsibility. The CLI accepts the agent output as catalog JSON, validates it, shows a deterministic plan, and imports products and prices through the official Product API:
+
+```bash
+clink catalog validate --file ./clink-catalog.json --json
+clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+```
+
+Each catalog product and price must include a stable `sourceId`. The CLI stores those source IDs in a mapping file so repeated imports can skip existing products/prices instead of creating duplicates.
 

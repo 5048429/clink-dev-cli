@@ -162,6 +162,10 @@ clink auth status
 clink product create --name "Starter" --image-id oss_xxx --tax-category software_service --amount 9.99 --currency USD --type recurring --interval month --default
 clink product list
 
+clink catalog validate --file ./clink-catalog.json --json
+clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+
 clink price create --product-id prd_xxx --amount 9.99 --currency USD --type recurring --interval month
 clink price list --product-id prd_xxx
 
@@ -212,6 +216,63 @@ clink dashboard webhook ensure --url https://your-public-host.example.com/api/cl
   "checkoutCommand": "clink checkout create ..."
 }
 ```
+
+## Product Catalog Import
+
+Agents should scan the merchant site, source code, CMS data, or pricing page and write a deterministic catalog file. The CLI does not crawl websites directly; it validates the catalog, plans changes, creates Clink products and prices, and stores a local source-to-Clink mapping to avoid duplicate imports.
+
+```json
+{
+  "version": 1,
+  "source": {
+    "site": "https://merchant.example/pricing"
+  },
+  "products": [
+    {
+      "sourceId": "starter-plan",
+      "name": "Starter",
+      "description": "Starter subscription plan",
+      "imageId": "oss_xxx",
+      "taxCategory": "software_service",
+      "prices": [
+        {
+          "sourceId": "starter-monthly",
+          "type": "recurring",
+          "amount": 9.99,
+          "currency": "USD",
+          "interval": "month",
+          "intervalCount": 1,
+          "default": true
+        },
+        {
+          "sourceId": "starter-yearly",
+          "type": "recurring",
+          "amount": 99.99,
+          "currency": "USD",
+          "interval": "year",
+          "intervalCount": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+Use `sourceId` values from the scanned site, route, SKU, CMS ID, or generated slug. They must stay stable across runs because the mapping file stores `sourceId -> productId/priceId`.
+
+```bash
+clink catalog validate --file ./clink-catalog.json --json
+clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+```
+
+Pass `--dry-run` before `catalog import` to inspect the Product API request bodies without writing Clink data or the mapping file:
+
+```bash
+clink --dry-run --json catalog import --file ./clink-catalog.json
+```
+
+If scanned products do not have uploaded Clink image OSS IDs yet, pass one placeholder with `--default-image-id oss_xxx` or add `imageId` per product after uploading images through Dashboard or `product create --image-file`.
 
 ## Checkout Sessions
 
