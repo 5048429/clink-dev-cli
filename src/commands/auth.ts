@@ -16,16 +16,17 @@ export function registerAuth(program: Command): void {
     .action(async (options: { apiKey?: string; webhookSecret?: string; env?: ClinkEnvironment; baseUrl?: string }, command: Command) => {
       const global = command.optsWithGlobals<GlobalOptions>();
       const profileName = global.profile ?? "default";
+      const apiKey = options.apiKey ?? global.apiKey;
       const profile: StoredProfile = {
-        environment: options.env ?? "sandbox",
-        baseUrl: options.baseUrl,
+        environment: global.env ?? options.env ?? "sandbox",
+        baseUrl: options.baseUrl ?? global.baseUrl,
       };
 
-      if (options.apiKey) {
-        if (options.apiKey.startsWith("env:")) {
-          profile.apiKeyEnv = options.apiKey.slice("env:".length);
+      if (apiKey) {
+        if (apiKey.startsWith("env:")) {
+          profile.apiKeyEnv = apiKey.slice("env:".length);
         } else {
-          profile.apiKey = options.apiKey;
+          profile.apiKey = apiKey;
         }
       }
 
@@ -54,6 +55,58 @@ export function registerAuth(program: Command): void {
         },
         runtime.outputMode,
         `Saved profile "${profileName}" at ${getConfigPath()}`,
+      );
+    });
+
+  const secret = auth
+    .command("secret")
+    .description("Configure Secret Key authentication without Dashboard login");
+
+  secret
+    .command("set")
+    .description("Store an existing Clink Secret Key for API authentication. Prefer env:VARIABLE references.")
+    .option("--api-key <value>", "Secret key literal or env:CLINK_SECRET_KEY")
+    .option("--env <environment>", "sandbox or production", "sandbox")
+    .option("--base-url <url>", "Override Clink API base URL")
+    .action(async (options: { apiKey?: string; env?: ClinkEnvironment; baseUrl?: string }, command: Command) => {
+      const global = command.optsWithGlobals<GlobalOptions>();
+      const profileName = global.profile ?? "default";
+      const apiKey = options.apiKey ?? global.apiKey;
+      requireOption("--api-key", apiKey);
+      const profile: StoredProfile = {
+        environment: global.env ?? options.env ?? "sandbox",
+        baseUrl: options.baseUrl ?? global.baseUrl,
+      };
+
+      if (apiKey.startsWith("env:")) {
+        profile.apiKeyEnv = apiKey.slice("env:".length);
+      } else {
+        profile.apiKey = apiKey;
+      }
+
+      await saveProfile(profileName, profile);
+      const runtime = await resolveRuntimeConfig(global);
+      const apiKeySource = profile.apiKeyEnv ? `env:${profile.apiKeyEnv}` : "literal";
+
+      printResult(
+        {
+          profile: profileName,
+          configPath: getConfigPath(),
+          environment: profile.environment,
+          baseUrl: runtime.baseUrl,
+          apiKey: maskSecret(runtime.apiKey),
+          apiKeySource,
+          ready: Boolean(runtime.apiKey),
+          next: "clink auth status",
+        },
+        runtime.outputMode,
+        [
+          `Saved Secret Key authentication for profile "${profileName}" at ${getConfigPath()}`,
+          `Environment: ${profile.environment}`,
+          `Base URL: ${runtime.baseUrl}`,
+          `API key: ${maskSecret(runtime.apiKey) ?? "missing"} (${apiKeySource})`,
+          runtime.apiKey ? "Next: clink auth status" : "Set the referenced environment variable before running API commands.",
+        ].join("\n"),
       );
     });
 

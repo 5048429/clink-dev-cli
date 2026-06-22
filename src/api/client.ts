@@ -40,7 +40,7 @@ export class ClinkApiClient {
     options: RequestOptions<TBody, TQuery> = {},
   ): Promise<T> {
     if (!this.config.apiKey && !this.config.dryRun) {
-      throw new Error("Missing Clink Secret Key. Set CLINK_SECRET_KEY or run auth set --api-key env:CLINK_SECRET_KEY");
+      throw new Error("Missing Clink Secret Key. Set CLINK_SECRET_KEY or run clink auth secret set --api-key env:CLINK_SECRET_KEY");
     }
 
     const url = new URL(path.replace(/^\//, ""), this.config.baseUrl);
