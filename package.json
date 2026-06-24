@@ -1,6 +1,6 @@
 {
   "name": "clink-dev-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Merchant developer CLI for ClinkBill integrations.",
   "type": "module",
   "main": "dist/index.js",
@@ -24,9 +24,7 @@
     "openapi:refresh": "openapi-typescript https://docs.clinkbill.com/api-reference/openapi.json -o src/openapi/clink.openapi.ts",
     "test": "vitest run",
     "verify": "npm run check && npm test && npm run build",
-    "prepare": "npm run build",
-    "prepack": "npm run build",
-    "pack:dry-run": "npm pack --dry-run",
+    "pack:dry-run": "npm run build && npm pack --dry-run --ignore-scripts",
     "start": "node dist/index.js"
   },
   "engines": {

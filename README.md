@@ -6,14 +6,7 @@ This CLI is designed for AI-assisted and Dashboard-light integration workflows. 
 
 ## Install
 
-Install the CLI directly from GitHub:
-
-```bash
-npm install -g github:5048429/clink-dev-cli
-clink --help
-```
-
-If global installs are not available in the agent/runtime environment, install it into a project-local tools directory:
+For coding agents, sandboxes, CI, and low-code runtimes, install the CLI into a project-local tools directory. This avoids global npm permission issues and stale global directory file locks:
 
 ```bash
 npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
@@ -25,6 +18,15 @@ On Windows PowerShell, the local binary path is:
 ```powershell
 .\.clink-tools\node_modules\.bin\clink.cmd --help
 ```
+
+Global install is still fine for a developer machine where global npm installs are known to work:
+
+```bash
+npm install -g github:5048429/clink-dev-cli
+clink --help
+```
+
+GitHub installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations.
 
 During CLI development in this repository:
 
@@ -44,9 +46,7 @@ npm run dev -- --help
 Validate changes before handoff:
 
 ```bash
-npm run check
-npm run build
-npm test
+npm run verify
 npm run pack:dry-run
 ```
 

@@ -18,17 +18,9 @@
 
 ## 安装 CLI
 
-不要使用 `node dist/index.js`。先安装并使用最新 `clink`。低代码/沙箱环境需要 CLI 支持 `clink auth secret set`，所以安装后必须检查命令能力：
+不要使用 `node dist/index.js`。先安装并使用最新 `clink`。低代码/沙箱环境需要 CLI 支持 `clink auth secret set`，所以安装后必须检查命令能力。
 
-```bash
-npm install -g github:5048429/clink-dev-cli
-clink auth secret set --help
-clink api request --help
-clink catalog import --help
-clink webhook endpoint ensure --help
-```
-
-如果全局安装失败：
+Agent 默认使用项目内隔离安装，避免全局 npm 目录权限、旧版本残留或文件锁问题：
 
 ```bash
 npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
@@ -40,6 +32,21 @@ npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
 - Windows PowerShell: `.\.clink-tools\node_modules\.bin\clink.cmd`
 
 下文统一写 `clink`，如果使用本地安装，请自动替换成对应路径。
+
+如果你确认当前机器全局 npm 可用，也可以全局安装：
+
+```bash
+npm install -g github:5048429/clink-dev-cli
+```
+
+GitHub 安装应使用仓库内已提交的 `dist/` 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。安装后必须检查命令能力：
+
+```bash
+clink auth secret set --help
+clink api request --help
+clink catalog import --help
+clink webhook endpoint ensure --help
+```
 
 不要依赖环境里预装的旧版 `clink`。安装后必须检查命令能力：
 

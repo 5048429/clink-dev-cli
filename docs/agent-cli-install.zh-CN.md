@@ -10,7 +10,22 @@
 
 ## 推荐安装方式
 
-全局安装：
+Agent、沙箱、低代码平台、CI 环境默认使用项目内隔离安装，避免全局 npm 目录权限、旧版本残留或文件锁影响接入：
+
+```bash
+npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+./.clink-tools/node_modules/.bin/clink --version
+./.clink-tools/node_modules/.bin/clink --help
+```
+
+Windows PowerShell 本地路径：
+
+```powershell
+.\.clink-tools\node_modules\.bin\clink.cmd --version
+.\.clink-tools\node_modules\.bin\clink.cmd --help
+```
+
+开发者自己的机器如果确认全局 npm 可用，也可以全局安装：
 
 ```bash
 npm install -g github:5048429/clink-dev-cli
@@ -18,18 +33,7 @@ clink --version
 clink --help
 ```
 
-如果当前环境不允许全局安装，安装到项目本地：
-
-```bash
-npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
-./.clink-tools/node_modules/.bin/clink --help
-```
-
-Windows PowerShell 本地路径：
-
-```powershell
-.\.clink-tools\node_modules\.bin\clink.cmd --help
-```
+GitHub 安装会直接使用仓库提交的 `dist/` 产物，不需要在目标项目里现场编译 TypeScript 或安装 Node 类型声明。
 
 下文统一写 `clink`。如果使用本地安装，把 `clink` 替换为对应的本地 binary 路径。
 
@@ -105,11 +109,22 @@ clink init --framework fastapi --out ./clink-demo --force --json
 ```text
 你需要先安装 Clink Dev CLI。不要使用 node dist/index.js。
 
-如果可以全局安装，请运行：
+默认安装到项目本地，避免全局 npm 目录权限或文件锁问题：
+  npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+
+Linux/macOS 使用：
+  ./.clink-tools/node_modules/.bin/clink --version
+
+Windows PowerShell 使用：
+  .\.clink-tools\node_modules\.bin\clink.cmd --version
+
+如果你确认当前机器全局 npm 可用，也可以全局安装：
   npm install -g github:5048429/clink-dev-cli
   clink --version
 
-如果全局安装失败，请安装到项目本地：
+GitHub 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。
+
+如果本地安装失败，请说明脱敏错误并重试一次：
   npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
 
 本地安装后，Linux/macOS 使用：
