@@ -22,9 +22,11 @@ On Windows PowerShell, the local binary path is:
 Global install is still fine for a developer machine where global npm installs are known to work:
 
 ```bash
-npm install -g github:5048429/clink-dev-cli
+npm install -g --install-links=true github:5048429/clink-dev-cli
 clink --help
 ```
+
+The `--install-links=true` flag avoids broken global junctions that some npm versions create for GitHub dependencies on Windows.
 
 GitHub installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations. The install-time `prepare` hook only verifies that `dist/` is present.
 

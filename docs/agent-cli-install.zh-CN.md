@@ -28,10 +28,12 @@ Windows PowerShell 本地路径：
 开发者自己的机器如果确认全局 npm 可用，也可以全局安装：
 
 ```bash
-npm install -g github:5048429/clink-dev-cli
+npm install -g --install-links=true github:5048429/clink-dev-cli
 clink --version
 clink --help
 ```
+
+`--install-links=true` 用于规避部分 npm 版本在 Windows 全局安装 GitHub 依赖时生成失效 junction 的问题。
 
 GitHub 安装会直接使用仓库提交的 `dist/` 产物，不需要在目标项目里现场编译 TypeScript 或安装 Node 类型声明。安装期 `prepare` 只校验 `dist/` 是否存在。
 
@@ -119,7 +121,7 @@ Windows PowerShell 使用：
   .\.clink-tools\node_modules\.bin\clink.cmd --version
 
 如果你确认当前机器全局 npm 可用，也可以全局安装：
-  npm install -g github:5048429/clink-dev-cli
+  npm install -g --install-links=true github:5048429/clink-dev-cli
   clink --version
 
 GitHub 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。即使看到 prepare，它也只应校验 dist，不应编译 TypeScript。

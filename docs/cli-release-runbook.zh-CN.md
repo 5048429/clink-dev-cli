@@ -5,7 +5,7 @@
 核心原则：
 
 - Agent、低代码平台、沙箱和 CI 默认使用 `npm install --prefix ./.clink-tools github:5048429/clink-dev-cli`，避免全局 npm 目录权限、旧版本残留或文件锁。
-- 开发者本机确认全局 npm 可用时，可以使用 `npm install -g github:5048429/clink-dev-cli`。
+- 开发者本机确认全局 npm 可用时，可以使用 `npm install -g --install-links=true github:5048429/clink-dev-cli`。
 - 因此，面向用户的能力必须合并到 GitHub 默认分支 `main`。
 - 仅推送 feature/integration 分支不等于发布。
 - GitHub 安装必须使用仓库提交的 `dist/` 产物，不能依赖安装环境现场编译 TypeScript 或安装 Node 类型声明；`prepare` 只能做轻量 `dist/` 存在性校验，不能构建。
@@ -193,10 +193,10 @@ npm install --prefix "$tmp/.clink-tools-tag" github:5048429/clink-dev-cli#v<new-
 
 如果默认分支安装没有拿到新能力，说明功能没有正确进入 `main`，不能交付。
 
-如需额外验证全局安装，不要复用可能有锁的旧全局目录；使用临时 prefix 模拟：
+如需额外验证全局安装，不要复用可能有锁的旧全局目录；使用临时 prefix 模拟。`--install-links=true` 用于规避部分 npm/Windows 环境对 GitHub 依赖生成失效 junction 的问题：
 
 ```bash
-npm install --prefix "$tmp/global-prefix" github:5048429/clink-dev-cli
+npm install -g --install-links=true --prefix "$tmp/global-prefix" github:5048429/clink-dev-cli
 "$tmp/global-prefix/bin/clink" --version
 ```
 
