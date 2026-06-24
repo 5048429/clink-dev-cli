@@ -4,6 +4,12 @@ Merchant developer CLI for ClinkBill integrations.
 
 This CLI is designed for AI-assisted and Dashboard-light integration workflows. It helps developers create Clink checkout sessions, manage products and prices, create subscriptions, simulate signed webhooks locally, and run integration health checks.
 
+## Quick Links
+
+- [CLI 使用文档](docs/cli-usage.zh-CN.md)
+- [Agent CLI install guide](docs/agent-cli-install.zh-CN.md)
+- [Requirements](docs/requirements.md)
+
 ## Install
 
 For coding agents, sandboxes, CI, and low-code runtimes, install the CLI into a project-local tools directory. This avoids global npm permission issues and stale global directory file locks:
@@ -388,6 +394,7 @@ clink checkout create ... --json
 
 ## Project Docs
 
+- [CLI 使用文档](docs/cli-usage.zh-CN.md)
 - [Requirements](docs/requirements.md)
 - [Agent CLI install guide](docs/agent-cli-install.zh-CN.md)
 - [CLI 更新与发布操作指南](docs/cli-release-runbook.zh-CN.md)

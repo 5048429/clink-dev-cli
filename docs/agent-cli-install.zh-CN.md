@@ -1,5 +1,7 @@
 # Agent 使用 Clink Dev CLI 接入说明
 
+完整 CLI 命令和能力说明见 [clink-dev-cli 使用文档](cli-usage.zh-CN.md)。本文件只保留 agent 安装和执行策略。
+
 目标：让接入 ClinkBill 的 agent 不需要手动 clone 本仓库，也不需要运行 `node dist/index.js`，而是自己安装 `clink` 命令并用它完成密钥、checkout、webhook 和本地验证。
 
 ## 前置要求
