@@ -16,6 +16,7 @@ https://raw.githubusercontent.com/5048429/agent-prompts/main/clink-ai-auto-integ
 - 如果你在本地/桌面环境运行、没有现成 Secret Key，并且可以打开浏览器，才运行 `clink login`，让我在打开的 Dashboard 登录页里手动完成登录，用于让 CLI 读取或创建 Secret Key。
 - 如果你在云 IDE、低代码编辑器、sandbox 或其他没有可用浏览器的环境运行，不要卡在 `clink login`。请让我自己登录 ClinkBill Dashboard 后把 Secret Key 提供给你，然后你把它只写入安全的服务端环境变量、平台 Secret 或本地 `.env`。
 - 无浏览器环境下，只能先向我索取 `CLINK_SECRET_KEY`。不要初始索取 `CLINK_WEBHOOK_SIGNING_KEY`；当前 CLI 已支持用 Secret Key 管理 webhook endpoint，webhook signing key 应该由你运行 `clink webhook endpoint ensure --save-secret` 后自动生成/保存，再由你写入平台 Secret。
+- Lovable Cloud、低代码平台或云 IDE 场景下，如果你能运行 CLI 并写入平台 Secret，不要让我本地运行 bootstrap 脚本来粘贴 `CLINK_WEBHOOK_SIGNING_KEY`；必须用 `clink webhook endpoint ensure --save-secret --show-secret --json` 获取 signing key 并自动写入 backend Secret。只有平台不允许 agent 写 Secret 时，才把这一步列为明确的权限阻塞。
 
 除了上述认证步骤，不要让我手动复制 productId、priceId、webhook signing key，或手动配置 Dashboard webhook，除非当前 CLI/平台能力确实无法自动完成，并且你已明确说明原因。
 

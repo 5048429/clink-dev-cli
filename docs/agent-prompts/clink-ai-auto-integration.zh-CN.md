@@ -399,6 +399,21 @@ X-Clink-Signature
 
 先判断当前项目是否已经有公网 HTTPS 域名。不要默认所有环境都走 tunnel。
 
+### Lovable / 低代码平台硬规则
+
+如果当前项目运行在 Lovable Cloud、低代码平台、云 IDE 或类似托管环境，并且 `CLINK_SECRET_KEY` 已经在平台 Secret 中配置：
+
+- 不要要求用户再到本地终端运行 `scripts/clink-bootstrap.sh` 来复制 `CLINK_WEBHOOK_SIGNING_KEY`。
+- 不要把“脚本会打印 signing key，请用户粘贴到平台 Secret”作为正常最终交付。
+- 先在 agent 环境安装项目内 CLI，并确认 `clink webhook endpoint ensure --help` 支持 `--show-secret`。
+- 使用平台已配置的 `CLINK_SECRET_KEY`，或在受控的一次性命令环境里让用户只提供 `CLINK_SECRET_KEY`，运行 `clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox`。
+- 部署包含 webhook route 的版本，拿到公网 HTTPS webhook URL。
+- 运行 `clink webhook endpoint ensure --url <public-webhook-url>/api/clink/webhook --events core --save-secret --show-secret --json`。
+- agent 如果有 Lovable Cloud Secrets 写入能力，必须自己把返回或轮换得到的 signing key 写入 Lovable backend Secret：`CLINK_WEBHOOK_SIGNING_KEY`，然后重新发布/重启后端。
+- 只有当平台不允许 agent 写入 Secret、也没有可用平台 Secret API 时，才把“请用户把这一个 signing key 写入 Lovable Backend Secret 并重新发布”列为阻塞的人类步骤，并明确说明这是平台写入权限限制，不是 Clink CLI 能力缺失。
+
+`CLINK_CATALOG_MAP` 不是密钥。优先把 catalog mapping 写入仓库内受控文件，例如 `.clink/catalog-map.json`，或写入后端可读取的配置；不要让用户手动复制粘贴 catalog map，除非平台没有可写文件/配置能力并且已经说明原因。
+
 ### 路径 A：已有公网 HTTPS 域名
 
 如果项目已经部署在可公网访问的 HTTPS 域名上，例如：

@@ -2,6 +2,8 @@
 
 Date: 2026-06-17
 
+Status: legacy research note. Current `clink-dev-cli` webhook endpoint management uses the Secret Key API through `clink webhook endpoint ensure`. New agent integrations must not follow the manual webhook signing-key copy flow below unless the target platform has no agent-accessible Secret write capability. For Lovable, low-code, cloud IDE, and sandbox integrations, prefer `clink webhook endpoint ensure --events core --save-secret --show-secret --json`, then write the returned signing secret into backend/platform Secret `CLINK_WEBHOOK_SIGNING_KEY` and redeploy.
+
 ## Recommendation
 
 Recommendation: **defer**.
@@ -102,11 +104,10 @@ Suitable temporary uses:
    - Never click Initialize Key automatically.
    - Never scrape, print, store, or pass the key to an agent.
 
-5. **Signing key setup guidance**
-   - Navigate to the registered webhook endpoint details.
-   - Tell the human to copy the signing key into `CLINK_WEBHOOK_SIGNING_KEY`.
-   - Optionally run `clink auth set --webhook-secret env:CLINK_WEBHOOK_SIGNING_KEY` after the user confirms the env var exists.
-   - Never read or print the raw signing key from the browser.
+5. **Legacy signing key setup guidance**
+   - This section applied before the public webhook endpoint API existed.
+   - Current flow: use `clink webhook endpoint ensure --save-secret --show-secret --json`, then write the returned signing key into `CLINK_WEBHOOK_SIGNING_KEY` through a backend/platform Secret API or tool.
+   - Only ask a human to copy the signing key when the platform does not allow the agent to write Secrets.
 
 Not suitable for OpenCLI:
 
@@ -182,10 +183,10 @@ Do not implement these commands until the adapter is approved. If implemented la
 
 ### Webhook Signing Key Viewing
 
-- Current state: signing key becomes available after webhook endpoint registration; no public retrieval endpoint reviewed.
-- Allowed OpenCLI behavior: navigate to the endpoint details page and instruct the human where to copy the value.
-- Forbidden behavior: reading, screenshotting, logging, storing, or transmitting the raw signing key.
-- Required user action: the human sets `CLINK_WEBHOOK_SIGNING_KEY`, then runs `clink auth set --webhook-secret env:CLINK_WEBHOOK_SIGNING_KEY`.
+- Legacy state at the time of this research: signing key became available only after Dashboard webhook endpoint registration; no public retrieval endpoint had been reviewed.
+- Current state: webhook endpoint management is supported by Secret Key API commands in `clink-dev-cli`.
+- Current flow: run `clink webhook endpoint ensure --save-secret --show-secret --json`, then sync the returned or rotated signing key into `CLINK_WEBHOOK_SIGNING_KEY` in the app runtime and redeploy.
+- Required user action only when blocked: if the platform does not expose a Secret write tool/API to the agent, the human adds `CLINK_WEBHOOK_SIGNING_KEY` to the platform backend Secret manager.
 
 ### Webhook Endpoint Registration
 
@@ -227,6 +228,6 @@ Do not implement these commands until the adapter is approved. If implemented la
 Do not build OpenCLI automation now. Use this document as the boundary for a future external experiment. In the meantime:
 
 1. Add normal API commands for public endpoints that already exist.
-2. Keep webhook registration and key setup as documented manual Dashboard steps.
+2. For current integrations, use Secret Key API webhook endpoint commands instead of manual Dashboard webhook setup.
 3. Ask ClinkBill for official public APIs for webhook endpoint create/list/delete, event list/replay, test event trigger, API key metadata, and Dashboard-safe onboarding status.
 4. Revisit OpenCLI only if webhook endpoint registration remains Dashboard-only and developers repeatedly fail sandbox onboarding because of it.
