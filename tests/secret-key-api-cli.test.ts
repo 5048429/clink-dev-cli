@@ -73,6 +73,37 @@ describe("Secret Key API commands", () => {
     });
   });
 
+  it("dry-runs arbitrary PATCH API requests", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "api",
+      "request",
+      "PATCH",
+      "/webhook/endpoints/whk_123",
+      "--data",
+      '{"enabled":false}',
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      result: { request: { method: string; url: string; headers: Record<string, string>; body: Record<string, unknown> } };
+    };
+    expect(output.result.request).toMatchObject({
+      method: "PATCH",
+      url: "https://uat-api.clinkbill.com/api/webhook/endpoints/whk_123",
+      headers: {
+        "X-API-KEY": "[masked]",
+        "X-Timestamp": "[generated]",
+        "Content-Type": "application/json",
+      },
+      body: {
+        enabled: false,
+      },
+    });
+  });
+
   it("dry-runs refund create through the dedicated command", () => {
     const result = runClink([
       "--json",

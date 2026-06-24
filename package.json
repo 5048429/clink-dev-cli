@@ -42,12 +42,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/5048429/clink-dev-cli.git"
+    "url": "git+https://gitlab.clinkpay.team/clink/acp/clink-dev-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/5048429/clink-dev-cli/issues"
+    "url": "https://gitlab.clinkpay.team/clink/acp/clink-dev-cli/-/issues"
   },
-  "homepage": "https://github.com/5048429/clink-dev-cli#readme",
+  "homepage": "https://gitlab.clinkpay.team/clink/acp/clink-dev-cli#readme",
   "packageManager": "npm@11.12.1",
   "dependencies": {
     "commander": "^14.0.2",

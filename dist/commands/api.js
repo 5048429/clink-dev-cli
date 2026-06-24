@@ -32,10 +32,10 @@ export function registerApi(program) {
 }
 function parseMethod(value) {
     const method = value.toUpperCase();
-    if (method === "GET" || method === "POST" || method === "PUT" || method === "DELETE") {
+    if (method === "GET" || method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
         return method;
     }
-    throw new Error(`Unsupported API method "${value}". Use GET, POST, PUT, or DELETE.`);
+    throw new Error(`Unsupported API method "${value}". Use GET, POST, PUT, PATCH, or DELETE.`);
 }
 function normalizePath(path) {
     return path.startsWith("/") ? path : `/${path}`;

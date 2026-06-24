@@ -7,7 +7,7 @@
 ## 前置要求
 
 - Node.js 20 或更高版本
-- 可以访问 GitHub
+- 可以访问公司 GitLab
 - 可以运行 `npm install`
 
 ## 推荐安装方式
@@ -15,7 +15,7 @@
 Agent、沙箱、低代码平台、CI 环境默认使用项目内隔离安装，避免全局 npm 目录权限、旧版本残留或文件锁影响接入：
 
 ```bash
-npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 ./.clink-tools/node_modules/.bin/clink --version
 ./.clink-tools/node_modules/.bin/clink --help
 ```
@@ -30,14 +30,14 @@ Windows PowerShell 本地路径：
 开发者自己的机器如果确认全局 npm 可用，也可以全局安装：
 
 ```bash
-npm install -g --install-links=true github:5048429/clink-dev-cli
+npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 clink --version
 clink --help
 ```
 
-`--install-links=true` 用于规避部分 npm 版本在 Windows 全局安装 GitHub 依赖时生成失效 junction 的问题。
+`--install-links=true` 用于规避部分 npm 版本在 Windows 全局安装 Git 依赖时生成失效 junction 的问题。
 
-GitHub 安装会直接使用仓库提交的 `dist/` 产物，不需要在目标项目里现场编译 TypeScript 或安装 Node 类型声明。安装期 `prepare` 只校验 `dist/` 是否存在。
+Git URL 安装会直接使用仓库提交的 `dist/` 产物，不需要在目标项目里现场编译 TypeScript 或安装 Node 类型声明。安装期 `prepare` 只校验 `dist/` 是否存在。
 
 下文统一写 `clink`。如果使用本地安装，把 `clink` 替换为对应的本地 binary 路径。
 
@@ -115,7 +115,7 @@ clink init --framework fastapi --out ./clink-demo --force --json
 你需要先安装 Clink Dev CLI。不要使用 node dist/index.js。
 
 默认安装到项目本地，避免全局 npm 目录权限或文件锁问题：
-  npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+  npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 
 Linux/macOS 使用：
   ./.clink-tools/node_modules/.bin/clink --version
@@ -124,13 +124,13 @@ Windows PowerShell 使用：
   .\.clink-tools\node_modules\.bin\clink.cmd --version
 
 如果你确认当前机器全局 npm 可用，也可以全局安装：
-  npm install -g --install-links=true github:5048429/clink-dev-cli
+  npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
   clink --version
 
-GitHub 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。即使看到 prepare，它也只应校验 dist，不应编译 TypeScript。
+Git URL 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。即使看到 prepare，它也只应校验 dist，不应编译 TypeScript。
 
 如果本地安装失败，请说明脱敏错误并重试一次：
-  npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+  npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 
 本地安装后，Linux/macOS 使用：
   ./.clink-tools/node_modules/.bin/clink

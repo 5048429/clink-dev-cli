@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { maskSecret } from "../output.js";
 export class ClinkApiClient {
     config;
     constructor(config) {
@@ -67,9 +68,9 @@ export class ClinkApiClient {
         const text = await response.text();
         const data = parseResponseBody(text);
         if (!response.ok) {
-            throw new Error(`Clink API ${method} ${url.pathname} failed with ${response.status}: ${text}`);
+            throw new Error(`Clink API ${method} ${url.pathname} failed with ${response.status}: ${sanitizeApiText(text, this.config)}`);
         }
-        assertSuccessfulApiEnvelope(method, url.pathname, data);
+        assertSuccessfulApiEnvelope(method, url.pathname, data, this.config);
         return data;
     }
 }
@@ -90,14 +91,14 @@ function parseResponseBody(text) {
         return text;
     }
 }
-function assertSuccessfulApiEnvelope(method, path, data) {
+function assertSuccessfulApiEnvelope(method, path, data, config) {
     if (!data || typeof data !== "object")
         return;
     const envelope = data;
     if (typeof envelope.code !== "number" || envelope.code === 200)
         return;
     const message = typeof envelope.msg === "string" ? envelope.msg : JSON.stringify(data);
-    throw new Error(`Clink API ${method} ${path} returned code ${envelope.code}: ${message}`);
+    throw new Error(`Clink API ${method} ${path} returned code ${envelope.code}: ${sanitizeApiText(message, config)}`);
 }
 function formatFetchError(error) {
     if (!(error instanceof Error))
@@ -111,5 +112,17 @@ function formatFetchError(error) {
         return details ? `${error.message} (${details})` : error.message;
     }
     return error.message;
+}
+function sanitizeApiText(value, config) {
+    let sanitized = value;
+    for (const secret of [config.apiKey, config.webhookSigningKey]) {
+        if (secret) {
+            sanitized = sanitized.split(secret).join(maskSecret(secret) ?? "[masked]");
+        }
+    }
+    return sanitized
+        .replace(/\bsk_(?:(?:test|live|uat|prod)_)?[A-Za-z0-9_-]{8,}\b/g, "[masked-secret-key]")
+        .replace(/\bwhsec_[A-Za-z0-9_-]{8,}\b/g, "[masked-webhook-secret]")
+        .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[masked-jwt]");
 }
 //# sourceMappingURL=client.js.map

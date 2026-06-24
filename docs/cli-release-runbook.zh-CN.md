@@ -1,14 +1,14 @@
 # Clink Dev CLI 更新与发布操作指南
 
-这份文档用于指导人或 AI agent 迭代 `clink-dev-cli`，避免“功能已经推到某个远程分支，但用户/低代码平台安装默认 GitHub 包时仍拿到旧 CLI”的问题。
+这份文档用于指导人或 AI agent 迭代 `clink-dev-cli`，避免“功能已经推到某个远程分支，但用户/低代码平台安装默认公司 GitLab 包时仍拿到旧 CLI”的问题。
 
 核心原则：
 
-- Agent、低代码平台、沙箱和 CI 默认使用 `npm install --prefix ./.clink-tools github:5048429/clink-dev-cli`，避免全局 npm 目录权限、旧版本残留或文件锁。
-- 开发者本机确认全局 npm 可用时，可以使用 `npm install -g --install-links=true github:5048429/clink-dev-cli`。
-- 因此，面向用户的能力必须合并到 GitHub 默认分支 `main`。
+- Agent、低代码平台、沙箱和 CI 默认使用 `npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git`，避免全局 npm 目录权限、旧版本残留或文件锁。
+- 开发者本机确认全局 npm 可用时，可以使用 `npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git`。
+- 因此，面向用户的能力必须合并到公司 GitLab 默认分支 `main`。
 - 仅推送 feature/integration 分支不等于发布。
-- GitHub 安装必须使用仓库提交的 `dist/` 产物，不能依赖安装环境现场编译 TypeScript 或安装 Node 类型声明；`prepare` 只能做轻量 `dist/` 存在性校验，不能构建。
+- Git URL 安装必须使用仓库提交的 `dist/` 产物，不能依赖安装环境现场编译 TypeScript 或安装 Node 类型声明；`prepare` 只能做轻量 `dist/` 存在性校验，不能构建。
 - 每次新增会影响 agent 接入流程的 CLI 能力，都必须完成远程安装验证。
 
 ## 1. 发布前检查
@@ -117,7 +117,7 @@ git commit -m "Release clink-dev-cli v<new-version>"
 ```
 
 不要只改代码不改版本，否则 agent 很难判断自己是否拿到新能力。
-不要只提交源码不提交 `dist/`，否则 GitHub 安装会拿不到可执行产物。
+不要只提交源码不提交 `dist/`，否则 Git URL 安装会拿不到可执行产物。
 
 ## 5. 在 main 上重新验证
 
@@ -163,11 +163,11 @@ git ls-remote --tags origin v<new-version>
 
 这是最容易漏掉、也最关键的一步。
 
-创建临时目录，从 GitHub 默认分支安装到项目内工具目录：
+创建临时目录，从公司 GitLab 默认分支安装到项目内工具目录：
 
 ```bash
 tmp="$(mktemp -d)"
-npm install --prefix "$tmp/.clink-tools" github:5048429/clink-dev-cli
+npm install --prefix "$tmp/.clink-tools" git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 "$tmp/.clink-tools/node_modules/.bin/clink" --version
 "$tmp/.clink-tools/node_modules/.bin/clink" auth secret set --help
 "$tmp/.clink-tools/node_modules/.bin/clink" webhook endpoint ensure --help
@@ -178,7 +178,7 @@ Windows PowerShell：
 ```powershell
 $tmp = Join-Path $env:TEMP ("clink-install-test-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-npm install --prefix (Join-Path $tmp ".clink-tools") github:5048429/clink-dev-cli
+npm install --prefix (Join-Path $tmp ".clink-tools") git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 & (Join-Path $tmp ".clink-tools\node_modules\.bin\clink.cmd") --version
 & (Join-Path $tmp ".clink-tools\node_modules\.bin\clink.cmd") auth secret set --help
 & (Join-Path $tmp ".clink-tools\node_modules\.bin\clink.cmd") webhook endpoint ensure --help
@@ -187,16 +187,16 @@ npm install --prefix (Join-Path $tmp ".clink-tools") github:5048429/clink-dev-cl
 再验证 tag 安装：
 
 ```bash
-npm install --prefix "$tmp/.clink-tools-tag" github:5048429/clink-dev-cli#v<new-version>
+npm install --prefix "$tmp/.clink-tools-tag" git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git#v<new-version>
 "$tmp/.clink-tools-tag/node_modules/.bin/clink" --version
 ```
 
 如果默认分支安装没有拿到新能力，说明功能没有正确进入 `main`，不能交付。
 
-如需额外验证全局安装，不要复用可能有锁的旧全局目录；使用临时 prefix 模拟。`--install-links=true` 用于规避部分 npm/Windows 环境对 GitHub 依赖生成失效 junction 的问题：
+如需额外验证全局安装，不要复用可能有锁的旧全局目录；使用临时 prefix 模拟。`--install-links=true` 用于规避部分 npm/Windows 环境对 Git 依赖生成失效 junction 的问题：
 
 ```bash
-npm install -g --install-links=true --prefix "$tmp/global-prefix" github:5048429/clink-dev-cli
+npm install -g --install-links=true --prefix "$tmp/global-prefix" git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 "$tmp/global-prefix/bin/clink" --version
 ```
 
@@ -247,7 +247,7 @@ curl -L https://raw.githubusercontent.com/5048429/agent-prompts/main/clink-unive
 - tag
 - 新版本号
 - `npm run verify` 结果
-- GitHub 默认安装验证结果
+- 公司 GitLab 默认安装验证结果
 - tag 安装验证结果
 - 关键命令能力验证结果
 - 是否同步更新 agent 提示词
@@ -257,7 +257,7 @@ curl -L https://raw.githubusercontent.com/5048429/agent-prompts/main/clink-unive
 
 ### 功能在远程分支上，但 agent 仍装到旧 CLI
 
-原因：`github:5048429/clink-dev-cli` 默认安装 GitHub 默认分支 `main`。功能只在其他分支时，普通安装不会拿到。
+原因：`git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git` 默认安装公司 GitLab 默认分支 `main`。功能只在其他分支时，普通安装不会拿到。
 
 解决：合并到 `main`，推送，打 tag，并做远程安装验证。
 

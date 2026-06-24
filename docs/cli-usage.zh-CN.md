@@ -9,7 +9,7 @@
 推荐在项目内隔离安装，尤其适合 AI agent、低代码平台、CI、云 IDE 和 sandbox 环境：
 
 ```bash
-npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 ./.clink-tools/node_modules/.bin/clink --version
 ./.clink-tools/node_modules/.bin/clink --help
 ```
@@ -24,12 +24,12 @@ Windows PowerShell：
 开发者本机确认全局 npm 可用时，也可以全局安装：
 
 ```bash
-npm install -g --install-links=true github:5048429/clink-dev-cli
+npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 clink --version
 clink --help
 ```
 
-`--install-links=true` 用于规避部分 npm/Windows 环境对 GitHub 依赖生成失效 junction 的问题。GitHub 安装使用仓库已提交的 `dist/` 产物，不需要在业务项目里现场编译 TypeScript 或补装 Node 类型声明。
+`--install-links=true` 用于规避部分 npm/Windows 环境对 Git 依赖生成失效 junction 的问题。Git URL 安装使用仓库已提交的 `dist/` 产物，不需要在业务项目里现场编译 TypeScript 或补装 Node 类型声明。
 
 安装后建议检查核心能力：
 

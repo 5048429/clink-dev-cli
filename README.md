@@ -15,7 +15,7 @@ This CLI is designed for AI-assisted and Dashboard-light integration workflows. 
 For coding agents, sandboxes, CI, and low-code runtimes, install the CLI into a project-local tools directory. This avoids global npm permission issues and stale global directory file locks:
 
 ```bash
-npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
+npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 ./.clink-tools/node_modules/.bin/clink --help
 ```
 
@@ -28,13 +28,13 @@ On Windows PowerShell, the local binary path is:
 Global install is still fine for a developer machine where global npm installs are known to work:
 
 ```bash
-npm install -g --install-links=true github:5048429/clink-dev-cli
+npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
 clink --help
 ```
 
-The `--install-links=true` flag avoids broken global junctions that some npm versions create for GitHub dependencies on Windows.
+The `--install-links=true` flag avoids broken global junctions that some npm versions create for Git dependencies on Windows.
 
-GitHub installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations. The install-time `prepare` hook only verifies that `dist/` is present.
+Git URL installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations. The install-time `prepare` hook only verifies that `dist/` is present.
 
 During CLI development in this repository:
 
