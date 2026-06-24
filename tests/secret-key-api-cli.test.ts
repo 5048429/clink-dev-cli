@@ -138,6 +138,38 @@ describe("Secret Key API commands", () => {
     });
   });
 
+  it("dry-runs webhook endpoint ensure with env-file signing secret sync", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "webhook",
+      "endpoint",
+      "ensure",
+      "--url",
+      "https://example.com/api/clink/webhook",
+      "--events",
+      "core",
+      "--sync-env-file",
+      ".env.local",
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      envSync: { dryRun: boolean; envFile: string; key: string };
+      result: { request: { body: Record<string, unknown> } };
+    };
+    expect(output.envSync).toMatchObject({
+      dryRun: true,
+      envFile: ".env.local",
+      key: "CLINK_WEBHOOK_SIGNING_KEY",
+    });
+    expect(output.result.request.body).toMatchObject({
+      returnSigningSecret: true,
+      rotateSecretIfUnavailable: true,
+    });
+  });
+
   it("dry-runs webhook endpoint update with only secret rotation", () => {
     const result = runClink([
       "--json",

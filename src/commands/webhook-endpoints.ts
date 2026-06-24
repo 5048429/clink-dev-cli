@@ -1,3 +1,7 @@
+import { exec } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { promisify } from "node:util";
 import type { Command } from "commander";
 import { saveProfile } from "../config.js";
 import { maskSecret, parseIntegerOption, printResult, requireOption } from "../output.js";
@@ -13,6 +17,8 @@ const WEBHOOK_CORE_EVENTS = [
   "invoice.paid",
 ] as const;
 const WEBHOOK_SUPPORTED_EVENTS = new Set<string>(WEBHOOK_CORE_EVENTS);
+const WEBHOOK_SIGNING_KEY_ENV = "CLINK_WEBHOOK_SIGNING_KEY";
+const execAsync = promisify(exec);
 
 type WebhookEndpoint = {
   id?: string;
@@ -64,12 +70,28 @@ type CommonWriteOptions = EventOptions & {
   showSecret?: boolean;
   saveSecret?: boolean;
   merchantId?: string;
+  syncEnvFile?: string;
+  restartCommand?: string;
 };
 
 type EnsureOptions = CommonWriteOptions & {
   rotateSecret?: boolean;
   rotateSecretIfUnavailable?: boolean;
   returnSigningSecret?: boolean;
+};
+
+type EnvSyncResult = {
+  envFile: string;
+  key: typeof WEBHOOK_SIGNING_KEY_ENV;
+  dryRun?: boolean;
+  written?: boolean;
+  restartRequired?: boolean;
+  restart?: {
+    command: string;
+    ok: boolean;
+    stdout?: string;
+    stderr?: string;
+  };
 };
 
 export function registerWebhookEndpointSubcommands(parent: Command, options: RegisterWebhookEndpointOptions = {}): void {
@@ -153,6 +175,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
     .option("--show-secret", "Print the full signing secret in command output")
     .option("--allow-unknown-events", "Send event names without local validation")
     .option("--disabled", "Create the webhook but leave it disabled");
+  addEnvSyncOptions(create);
   addLegacyDashboardOptions(create, options);
   create.action(async function (this: Command, createOptions: CommonWriteOptions) {
     const { config, client } = await getCommandContext(this);
@@ -164,12 +187,14 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
     };
     const result = await client.post<WebhookEndpointEnvelope<WebhookEndpoint>, typeof body>(WEBHOOK_ENDPOINT_PATH, { body });
     await saveSigningSecretIfRequested(config.profile, result, Boolean(createOptions.saveSecret), config.dryRun);
+    const envSync = await syncEnvAndRestartIfRequested(createOptions, result, config.dryRun);
     const endpoint = extractEndpoint(result);
     printResult(
       {
         profile: config.profile,
         ignoredMerchantId: createOptions.merchantId,
         saved: Boolean(createOptions.saveSecret),
+        envSync,
         endpoint: maskWebhookSecrets(endpoint, Boolean(createOptions.showSecret)),
         result: maskWebhookSecrets(result, Boolean(createOptions.showSecret)),
       },
@@ -182,6 +207,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
             `Events: ${(endpoint?.events ?? body.events).join(", ")}`,
             formatSigningSecretLine(endpoint, Boolean(createOptions.showSecret)),
             createOptions.saveSecret ? `Saved signing secret into profile "${config.profile}".` : "Signing secret was not saved. Re-run with --save-secret to store it.",
+            formatEnvSyncLine(envSync),
           ]
             .filter(Boolean)
             .join("\n"),
@@ -201,6 +227,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
     .option("--rotate-secret", "Rotate the signing secret after updating")
     .option("--save-secret", "Save the rotated signing secret into the current clink profile")
     .option("--show-secret", "Print the full rotated signing secret in command output");
+  addEnvSyncOptions(update);
   addLegacyDashboardOptions(update, options);
   update.action(async function (
     this: Command,
@@ -210,7 +237,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
     requireOption("endpoint-id", endpointId);
     const { config, client } = await getCommandContext(this);
     const body = buildUpdateBody(updateOptions);
-    const shouldRotate = Boolean(updateOptions.rotateSecret || updateOptions.saveSecret || updateOptions.showSecret);
+    const shouldRotate = Boolean(updateOptions.rotateSecret || updateOptions.saveSecret || updateOptions.showSecret || updateOptions.syncEnvFile);
     if (Object.keys(body).length === 0 && !shouldRotate) {
       throw new Error("Provide at least one of --url, --events, --description, --remark, --enabled, --disabled, or --rotate-secret.");
     }
@@ -223,12 +250,14 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
       : undefined;
     await saveSigningSecretIfRequested(config.profile, rotateResult ?? updateResult, Boolean(updateOptions.saveSecret), config.dryRun);
     const result = rotateResult ?? updateResult;
+    const envSync = await syncEnvAndRestartIfRequested(updateOptions, result, config.dryRun);
     const endpoint = extractEndpoint(result);
     printResult(
       {
         profile: config.profile,
         ignoredMerchantId: updateOptions.merchantId,
         saved: Boolean(updateOptions.saveSecret),
+        envSync,
         updateResult: maskWebhookSecrets(updateResult, false),
         rotateResult: maskWebhookSecrets(rotateResult, Boolean(updateOptions.showSecret)),
         endpoint: maskWebhookSecrets(endpoint, Boolean(updateOptions.showSecret)),
@@ -242,6 +271,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
             endpoint?.events ? `Events: ${endpoint.events.join(", ")}` : undefined,
             formatSigningSecretLine(endpoint, Boolean(updateOptions.showSecret)),
             updateOptions.saveSecret ? `Saved signing secret into profile "${config.profile}".` : undefined,
+            formatEnvSyncLine(envSync),
           ]
             .filter(Boolean)
             .join("\n"),
@@ -280,21 +310,24 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
       await updateEndpointEnabled(this, endpointId, false);
     });
 
-  parent
+  const rotateSecret = parent
     .command("rotate-secret <endpoint-id>")
     .description("Rotate a webhook endpoint signing secret")
     .option("--save-secret", "Save the rotated signing secret into the current clink profile")
-    .option("--show-secret", "Print the full signing secret in command output")
-    .action(async function (this: Command, endpointId: string, rotateOptions: { saveSecret?: boolean; showSecret?: boolean }) {
+    .option("--show-secret", "Print the full signing secret in command output");
+  addEnvSyncOptions(rotateSecret);
+  rotateSecret.action(async function (this: Command, endpointId: string, rotateOptions: { saveSecret?: boolean; showSecret?: boolean; syncEnvFile?: string; restartCommand?: string }) {
       requireOption("endpoint-id", endpointId);
       const { config, client } = await getCommandContext(this);
       const result = await client.post<WebhookEndpointEnvelope<WebhookEndpoint>>(`${WEBHOOK_ENDPOINT_PATH}/${encodeURIComponent(endpointId)}/rotate-secret`);
       await saveSigningSecretIfRequested(config.profile, result, Boolean(rotateOptions.saveSecret), config.dryRun);
+      const envSync = await syncEnvAndRestartIfRequested(rotateOptions, result, config.dryRun);
       const endpoint = extractEndpoint(result);
       printResult(
         {
           profile: config.profile,
           saved: Boolean(rotateOptions.saveSecret),
+          envSync,
           endpoint: maskWebhookSecrets(endpoint, Boolean(rotateOptions.showSecret)),
           result: maskWebhookSecrets(result, Boolean(rotateOptions.showSecret)),
         },
@@ -306,6 +339,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
               `Endpoint ID: ${endpoint?.id ?? endpointId}`,
               formatSigningSecretLine(endpoint, Boolean(rotateOptions.showSecret)),
               rotateOptions.saveSecret ? `Saved signing secret into profile "${config.profile}".` : "Signing secret was not saved. Re-run with --save-secret to store it.",
+              formatEnvSyncLine(envSync),
             ]
               .filter(Boolean)
               .join("\n"),
@@ -326,6 +360,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
     .option("--return-signing-secret", "Request plaintext signing secret when available")
     .option("--rotate-secret", "Always rotate the signing secret for an existing endpoint")
     .option("--no-rotate-secret-if-unavailable", "Do not rotate existing endpoints when plaintext secret is unavailable");
+  addEnvSyncOptions(ensure);
   addLegacyDashboardOptions(ensure, options);
   ensure.action(async function (this: Command, ensureOptions: EnsureOptions) {
     const { config, client } = await getCommandContext(this);
@@ -333,7 +368,8 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
       ensureOptions.saveSecret ||
       ensureOptions.showSecret ||
       ensureOptions.returnSigningSecret ||
-      ensureOptions.rotateSecret,
+      ensureOptions.rotateSecret ||
+      ensureOptions.syncEnvFile,
     );
     const body = {
       url: parseHttpsEndpoint(ensureOptions.url),
@@ -349,6 +385,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
       { body },
     );
     await saveSigningSecretIfRequested(config.profile, result, Boolean(ensureOptions.saveSecret), config.dryRun);
+    const envSync = await syncEnvAndRestartIfRequested(ensureOptions, result, config.dryRun);
     const data = result.data;
     const endpoint = data?.endpoint;
     printResult(
@@ -356,6 +393,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
         profile: config.profile,
         ignoredMerchantId: ensureOptions.merchantId,
         saved: Boolean(ensureOptions.saveSecret),
+        envSync,
         source: data?.source,
         signingSecretAvailable: data?.signingSecretAvailable,
         signingSecretUnavailableReason: data?.signingSecretUnavailableReason,
@@ -373,6 +411,7 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
             `Enabled: ${endpoint?.enabled ?? body.enabled}`,
             formatSigningSecretLine(endpoint, Boolean(ensureOptions.showSecret)),
             ensureOptions.saveSecret ? `Saved signing secret into profile "${config.profile}".` : "Signing secret was not saved. Re-run with --save-secret to store it.",
+            formatEnvSyncLine(envSync),
             data?.nextAction ? `Next action: ${data.nextAction}` : undefined,
           ]
             .filter(Boolean)
@@ -384,6 +423,12 @@ export function registerWebhookEndpointSubcommands(parent: Command, options: Reg
 function addLegacyDashboardOptions(command: Command, options: RegisterWebhookEndpointOptions): void {
   if (!options.legacyDashboardOptions) return;
   command.option("--merchant-id <id>", "Ignored; the Secret Key selects the current merchant");
+}
+
+function addEnvSyncOptions(command: Command): void {
+  command
+    .option("--sync-env-file <path>", `Write ${WEBHOOK_SIGNING_KEY_ENV} to an env file after resolving the plaintext signing secret`)
+    .option("--restart-command <command>", "Run this shell command after --sync-env-file is updated");
 }
 
 async function updateEndpointEnabled(command: Command, endpointId: string, enabled: boolean): Promise<void> {
@@ -534,24 +579,120 @@ function extractSigningSecret(result: unknown): string | undefined {
   return typeof endpoint?.signingSecret === "string" && endpoint.signingSecret.length > 0 ? endpoint.signingSecret : undefined;
 }
 
-async function saveSigningSecretIfRequested(profile: string, result: unknown, enabled: boolean, dryRun: boolean): Promise<void> {
-  if (!enabled) return;
-  if (dryRun) return;
-  const signingSecret = extractSigningSecret(result);
-  if (!signingSecret) {
-    const data = getEnvelopeData(result);
-    const nextAction = isRecord(data) && typeof data.nextAction === "string"
-      ? data.nextAction
-      : undefined;
-    throw new Error(
-      [
-        "Clink did not return a plaintext webhook signing secret.",
-        nextAction ? `Next action: ${nextAction}.` : "Use rotate-secret, or retry ensure with --rotate-secret.",
-      ].join(" "),
-    );
-  }
+async function saveSigningSecretIfRequested(profile: string, result: unknown, enabled: boolean, dryRun: boolean): Promise<string | undefined> {
+  if (!enabled) return extractSigningSecret(result);
+  if (dryRun) return undefined;
+  const signingSecret = requireSigningSecret(result);
 
   await saveProfile(profile, { webhookSigningKey: signingSecret });
+  return signingSecret;
+}
+
+async function syncEnvAndRestartIfRequested(
+  options: { syncEnvFile?: string; restartCommand?: string },
+  result: unknown,
+  dryRun: boolean,
+): Promise<EnvSyncResult | undefined> {
+  if (!options.syncEnvFile) return undefined;
+
+  if (dryRun) {
+    return {
+      envFile: options.syncEnvFile,
+      key: WEBHOOK_SIGNING_KEY_ENV,
+      dryRun: true,
+      restartRequired: !options.restartCommand,
+      restart: options.restartCommand ? { command: options.restartCommand, ok: true } : undefined,
+    };
+  }
+
+  const signingSecret = requireSigningSecret(result);
+  await writeEnvFileValue(options.syncEnvFile, WEBHOOK_SIGNING_KEY_ENV, signingSecret);
+  const envSync: EnvSyncResult = {
+    envFile: options.syncEnvFile,
+    key: WEBHOOK_SIGNING_KEY_ENV,
+    written: true,
+    restartRequired: !options.restartCommand,
+  };
+
+  if (options.restartCommand) {
+    envSync.restart = await runRestartCommand(options.restartCommand);
+    envSync.restartRequired = false;
+  }
+
+  return envSync;
+}
+
+function requireSigningSecret(result: unknown): string {
+  const signingSecret = extractSigningSecret(result);
+  if (signingSecret) return signingSecret;
+
+  const data = getEnvelopeData(result);
+  const nextAction = isRecord(data) && typeof data.nextAction === "string"
+    ? data.nextAction
+    : undefined;
+  throw new Error(
+    [
+      "Clink did not return a plaintext webhook signing secret.",
+      nextAction ? `Next action: ${nextAction}.` : "Use rotate-secret, or retry ensure with --rotate-secret.",
+    ].join(" "),
+  );
+}
+
+async function writeEnvFileValue(filePath: string, key: string, value: string): Promise<void> {
+  let raw = "";
+  try {
+    raw = await readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, upsertEnvValue(raw, key, value), "utf8");
+}
+
+export function upsertEnvValue(raw: string, key: string, value: string): string {
+  const line = `${key}=${formatEnvValue(value)}`;
+  const pattern = new RegExp(`^(\\s*(?:export\\s+)?${escapeRegExp(key)}\\s*=).*$`, "m");
+  if (pattern.test(raw)) {
+    return raw.replace(pattern, (_match, prefix: string) => `${prefix}${formatEnvValue(value)}`);
+  }
+  const prefix = raw.length === 0 || raw.endsWith("\n") ? raw : `${raw}\n`;
+  return `${prefix}${line}\n`;
+}
+
+function formatEnvValue(value: string): string {
+  return /^[A-Za-z0-9_./:=+-]+$/.test(value) ? value : JSON.stringify(value);
+}
+
+async function runRestartCommand(command: string): Promise<NonNullable<EnvSyncResult["restart"]>> {
+  const { stdout, stderr } = await execAsync(command, { windowsHide: true });
+  return {
+    command,
+    ok: true,
+    stdout: truncateCommandOutput(stdout),
+    stderr: truncateCommandOutput(stderr),
+  };
+}
+
+function truncateCommandOutput(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 1000 ? `${trimmed.slice(0, 1000)}...` : trimmed;
+}
+
+function formatEnvSyncLine(envSync: EnvSyncResult | undefined): string | undefined {
+  if (!envSync) return undefined;
+  if (envSync.dryRun) {
+    return `Dry run: would write ${envSync.key} to ${envSync.envFile}.`;
+  }
+  const restart = envSync.restart
+    ? ` Restart command completed: ${envSync.restart.command}`
+    : " Restart or redeploy the app before verifying webhooks.";
+  return `Synced ${envSync.key} to ${envSync.envFile}.${restart}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function maskWebhookSecrets(value: unknown, showSecret: boolean): unknown {

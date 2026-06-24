@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const ONE_BY_ONE_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64",
+);
 
 interface CliResult {
   status: number | null;
@@ -73,6 +77,39 @@ function writeCatalog(tempDir: string): string {
               currency: "USD",
               interval: "year",
               intervalCount: 1,
+            },
+          ],
+        },
+      ],
+    }, null, 2)}\n`,
+    "utf8",
+  );
+  return catalogPath;
+}
+
+function writeCatalogWithImageFile(tempDir: string): string {
+  const catalogPath = join(tempDir, "catalog.json");
+  mkdirSync(join(tempDir, "assets"), { recursive: true });
+  writeFileSync(join(tempDir, "assets", "starter.png"), ONE_BY_ONE_PNG);
+  writeFileSync(
+    catalogPath,
+    `${JSON.stringify({
+      version: 1,
+      products: [
+        {
+          sourceId: "starter-plan",
+          name: "Starter",
+          description: "Starter subscription plan",
+          imageFile: "assets/starter.png",
+          taxCategory: "software_service",
+          prices: [
+            {
+              sourceId: "starter-monthly",
+              type: "recurring",
+              amount: 9.99,
+              currency: "USD",
+              interval: "month",
+              default: true,
             },
           ],
         },
@@ -186,6 +223,72 @@ describe("catalog commands", () => {
     }
   });
 
+  it("validates local imageFile assets relative to the catalog file", () => {
+    const tempDir = join(tmpdir(), `clink-catalog-imagefile-${process.pid}-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    try {
+      const catalogPath = writeCatalogWithImageFile(tempDir);
+      const result = runClink(["--json", "catalog", "validate", "--file", catalogPath], tempDir);
+
+      expect(result.status).toBe(0);
+      const output = JSON.parse(result.stdout) as {
+        catalog: { products: Array<{ imageFile?: string; imageSource: { kind: string; mimeType: string; sha256: string } }> };
+      };
+      expect(output.catalog.products[0]).toMatchObject({
+        imageFile: "assets/starter.png",
+        imageSource: {
+          kind: "file",
+          mimeType: "image/png",
+        },
+      });
+      expect(output.catalog.products[0].imageSource.sha256).toMatch(/^[a-f0-9]{64}$/);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects URL values passed as imageId", () => {
+    const tempDir = join(tmpdir(), `clink-catalog-imageid-url-${process.pid}-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    try {
+      const catalogPath = writeCatalog(tempDir);
+      writeFileSync(
+        catalogPath,
+        `${JSON.stringify({
+          version: 1,
+          products: [
+            {
+              sourceId: "starter-plan",
+              name: "Starter",
+              imageId: "https://example.com/starter.png",
+              taxCategory: "software_service",
+              prices: [
+                {
+                  sourceId: "starter-monthly",
+                  type: "recurring",
+                  amount: 9.99,
+                  currency: "USD",
+                },
+              ],
+            },
+          ],
+        }, null, 2)}\n`,
+        "utf8",
+      );
+
+      const result = runClink(["--json", "catalog", "validate", "--file", catalogPath], tempDir);
+      const output = JSON.parse(result.stdout) as { ok: boolean; errors: Array<{ path: string; message: string }> };
+
+      expect(result.status).toBe(1);
+      expect(output.ok).toBe(false);
+      expect(output.errors).toContainEqual(expect.objectContaining({
+        path: "$.products[0].imageId",
+      }));
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("plans creates and skips from the local catalog mapping", () => {
     const tempDir = join(tmpdir(), `clink-catalog-plan-${process.pid}-${Date.now()}`);
     mkdirSync(tempDir, { recursive: true });
@@ -277,8 +380,8 @@ describe("catalog commands", () => {
         createdProducts: 1,
         createdPrices: 2,
       });
-      expect(output.operations[0].action).toBe("create_product");
-      expect(output.operations[0].result.request).toMatchObject({
+      const createProduct = output.operations.find((operation) => operation.action === "create_product");
+      expect(createProduct?.result.request).toMatchObject({
         method: "POST",
         url: "https://uat-api.clinkbill.com/api/product",
         body: {
@@ -311,6 +414,51 @@ describe("catalog commands", () => {
         },
       });
       expect(existsSync(mappingPath)).toBe(false);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-runs imageFile upload before catalog product creation", () => {
+    const tempDir = join(tmpdir(), `clink-catalog-image-import-${process.pid}-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    try {
+      const catalogPath = writeCatalogWithImageFile(tempDir);
+      const mappingPath = join(tempDir, "catalog-map.json");
+
+      const result = runClink([
+        "--json",
+        "--dry-run",
+        "catalog",
+        "import",
+        "--file",
+        catalogPath,
+        "--mapping-file",
+        mappingPath,
+      ], tempDir);
+
+      expect(result.status).toBe(0);
+      const output = JSON.parse(result.stdout) as {
+        summary: Record<string, number>;
+        operations: Array<{ action: string; image?: { action: string; ossId?: string }; result?: { request: { body: Record<string, unknown> } } }>;
+      };
+      expect(output.summary).toMatchObject({
+        uploadedImages: 1,
+        createdProducts: 1,
+      });
+      expect(output.operations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          action: "upload_image",
+          image: expect.objectContaining({
+            action: "upload",
+            ossId: expect.stringMatching(/^dry_run_oss_/),
+          }),
+        }),
+      ]));
+      const createProduct = output.operations.find((operation) => operation.action === "create_product");
+      expect(createProduct?.result?.request.body).toMatchObject({
+        image: expect.stringMatching(/^dry_run_oss_/),
+      });
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

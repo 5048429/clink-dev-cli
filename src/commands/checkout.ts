@@ -12,12 +12,19 @@ export function registerCheckout(program: Command): void {
   const checkout = program.command("checkout").description("Create checkout sessions");
 
   checkout
-    .command("get <session-id>")
+    .command("get <session-id-or-url>")
     .description("Get checkout session details")
-    .action(async (sessionId: string, command: Command) => {
-      const { config, client } = await getCommandContext(command);
+    .action(async function (this: Command, sessionIdOrUrl: string) {
+      const { config, client } = await getCommandContext(this);
+      const sessionId = normalizeCheckoutSessionId(sessionIdOrUrl);
       const result = await client.get(`/checkout/session/${encodeURIComponent(sessionId)}`);
-      printResult(result, config.outputMode);
+      printResult(
+        {
+          sessionId,
+          result,
+        },
+        config.outputMode,
+      );
     });
 
   checkout
@@ -190,15 +197,44 @@ function roundMoney(value: number): number {
 }
 
 function extractCheckoutUrl(result: unknown): string | undefined {
-  const data = result && typeof result === "object" ? (result as { data?: Record<string, unknown> }).data : undefined;
-  const value = data?.checkoutUrl ?? data?.url;
+  const root = result && typeof result === "object" ? result as Record<string, unknown> : undefined;
+  const data = root?.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
+  const value = data?.checkoutUrl ?? data?.url ?? data?.hostedUrl ?? data?.paymentUrl ?? data?.checkout_url
+    ?? root?.checkoutUrl ?? root?.url ?? root?.hostedUrl ?? root?.paymentUrl ?? root?.checkout_url;
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function extractSessionId(result: unknown): string | undefined {
-  const data = result && typeof result === "object" ? (result as { data?: Record<string, unknown> }).data : undefined;
-  const value = data?.sessionId;
+  const root = result && typeof result === "object" ? result as Record<string, unknown> : undefined;
+  const data = root?.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
+  const value = data?.sessionId ?? data?.id ?? root?.sessionId ?? root?.id;
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function normalizeCheckoutSessionId(value: string): string {
+  const trimmed = value.trim();
+  requireOption("session-id-or-url", trimmed);
+  if (!/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return trimmed;
+  }
+
+  const sessionId = url.searchParams.get("session_id")
+    ?? url.searchParams.get("sessionId")
+    ?? url.pathname
+      .split("/")
+      .filter(Boolean)
+      .reverse()
+      .find((part) => /^sess[_-]/i.test(part))
+    ?? url.pathname.split("/").filter(Boolean).pop();
+  if (!sessionId) {
+    throw new Error("Could not extract checkout session ID from URL.");
+  }
+  return sessionId;
 }
 
 function openUrl(url: string): void {

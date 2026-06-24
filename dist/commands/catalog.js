@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { createImageUploadFormFromAsset, inspectImageFile, inspectImageUrl, isHttpUrl, loadImageUploadAsset, } from "../catalog-images.js";
 import { printResult } from "../output.js";
 import { getCommandContext } from "./helpers.js";
 const DEFAULT_MAPPING_FILE = ".clink/catalog-map.json";
@@ -36,9 +37,11 @@ export function registerCatalog(program) {
         .description("Validate a catalog JSON file produced by an agent")
         .requiredOption("--file <path>", "Catalog JSON file")
         .option("--default-image-id <ossId>", "Fallback product image OSS ID for products without imageId")
+        .option("--project-root <path>", "Project root for resolving catalog imageFile paths")
+        .option("--public-dir <path>", "Public/static asset directory for root-relative imageFile paths")
         .action(async (options, command) => {
         const { config } = await getCommandContext(command);
-        const validation = await readAndValidateCatalog(options.file, options.defaultImageId);
+        const validation = await readAndValidateCatalog(options.file, options.defaultImageId, imageResolveOptions(options));
         printResult(validation, config.outputMode, validation.ok
             ? `Catalog is valid: ${validation.catalog?.products.length ?? 0} product(s)`
             : formatValidationIssues(validation));
@@ -51,10 +54,12 @@ export function registerCatalog(program) {
         .requiredOption("--file <path>", "Catalog JSON file")
         .option("--mapping-file <path>", "Catalog mapping file", DEFAULT_MAPPING_FILE)
         .option("--default-image-id <ossId>", "Fallback product image OSS ID for products without imageId")
+        .option("--project-root <path>", "Project root for resolving catalog imageFile paths")
+        .option("--public-dir <path>", "Public/static asset directory for root-relative imageFile paths")
         .option("--force", "Plan recreation even when mapping entries exist")
         .action(async (options, command) => {
         const { config } = await getCommandContext(command);
-        const validation = await readAndValidateCatalog(options.file, options.defaultImageId);
+        const validation = await readAndValidateCatalog(options.file, options.defaultImageId, imageResolveOptions(options));
         if (!validation.ok || !validation.catalog) {
             printResult(validation, config.outputMode, formatValidationIssues(validation));
             process.exitCode = 1;
@@ -76,10 +81,12 @@ export function registerCatalog(program) {
         .requiredOption("--file <path>", "Catalog JSON file")
         .option("--mapping-file <path>", "Catalog mapping file", DEFAULT_MAPPING_FILE)
         .option("--default-image-id <ossId>", "Fallback product image OSS ID for products without imageId")
+        .option("--project-root <path>", "Project root for resolving catalog imageFile paths")
+        .option("--public-dir <path>", "Public/static asset directory for root-relative imageFile paths")
         .option("--force", "Create new Clink products even when mapping entries exist")
         .action(async (options, command) => {
         const { config, client } = await getCommandContext(command);
-        const validation = await readAndValidateCatalog(options.file, options.defaultImageId);
+        const validation = await readAndValidateCatalog(options.file, options.defaultImageId, imageResolveOptions(options));
         if (!validation.ok || !validation.catalog) {
             printResult(validation, config.outputMode, formatValidationIssues(validation));
             process.exitCode = 1;
@@ -91,6 +98,7 @@ export function registerCatalog(program) {
             dryRun: config.dryRun,
             postProduct: (body) => client.post("/product", { body }),
             postPrice: (body) => client.post("/price", { body }),
+            uploadImage: (form) => client.post("/product/image/upload", { multipart: form }),
         });
         if (!config.dryRun) {
             await writeCatalogMapping(options.mappingFile, result.mapping);
@@ -106,7 +114,14 @@ export function registerCatalog(program) {
         }, config.outputMode, `Catalog import ${config.dryRun ? "dry-run " : ""}completed: ${result.summary.createdProducts} product(s), ${result.summary.createdPrices} price(s) created.`);
     });
 }
-async function readAndValidateCatalog(filePath, defaultImageId) {
+function imageResolveOptions(options) {
+    return {
+        catalogFilePath: options.file,
+        projectRoot: options.projectRoot,
+        publicDir: options.publicDir,
+    };
+}
+async function readAndValidateCatalog(filePath, defaultImageId, imageOptions = { catalogFilePath: filePath }) {
     let raw;
     try {
         raw = JSON.parse(stripJsonBom(await readFile(filePath, "utf8")));
@@ -119,9 +134,9 @@ async function readAndValidateCatalog(filePath, defaultImageId) {
             warnings: [],
         };
     }
-    return normalizeCatalog(raw, defaultImageId);
+    return normalizeCatalog(raw, defaultImageId, imageOptions);
 }
-function normalizeCatalog(raw, defaultImageId) {
+async function normalizeCatalog(raw, defaultImageId, imageOptions) {
     const errors = [];
     const warnings = [];
     const root = asRecord(raw);
@@ -138,19 +153,19 @@ function normalizeCatalog(raw, defaultImageId) {
     }
     const productSourceIds = new Set();
     const products = [];
-    (rawProducts ?? []).forEach((value, index) => {
+    if (defaultImageId && isHttpUrl(defaultImageId)) {
+        errors.push({ path: "$.--default-image-id", message: "defaultImageId must be an uploaded OSS ID, not a URL. Use imageUrl in the catalog instead." });
+    }
+    for (const [index, value] of (rawProducts ?? []).entries()) {
         const path = `$.products[${index}]`;
         const product = asRecord(value);
         if (!product) {
             errors.push({ path, message: "Product must be an object" });
-            return;
+            continue;
         }
         const sourceId = requiredString(product.sourceId, `${path}.sourceId`, errors);
         const name = requiredString(product.name, `${path}.name`, errors);
-        const imageId = optionalString(product.imageId) ?? optionalString(product.image) ?? defaultImageId;
-        if (!imageId) {
-            errors.push({ path: `${path}.imageId`, message: "Product must include imageId, or pass --default-image-id" });
-        }
+        const imageSource = await normalizeImageSource(product, path, defaultImageId, imageOptions, errors);
         const taxCategory = optionalString(product.taxCategory) ?? DEFAULT_TAX_CATEGORY;
         if (!isTaxCategory(taxCategory)) {
             errors.push({ path: `${path}.taxCategory`, message: "taxCategory must be digital_goods_or_service, ebook, or software_service" });
@@ -238,11 +253,14 @@ function normalizeCatalog(raw, defaultImageId) {
             name: name ?? "",
             localizedNames: stringRecord(product.localizedNames),
             description: optionalString(product.description),
-            imageId: imageId ?? "",
+            imageId: imageSource?.kind === "id" || imageSource?.kind === "default" ? imageSource.imageId : undefined,
+            imageUrl: imageSource?.kind === "url" ? imageSource.imageUrl : undefined,
+            imageFile: imageSource?.kind === "file" ? imageSource.imageFile : undefined,
+            imageSource: imageSource ?? { kind: "id", imageId: "", sourceField: "imageId" },
             taxCategory: isTaxCategory(taxCategory) ? taxCategory : DEFAULT_TAX_CATEGORY,
             prices,
         });
-    });
+    }
     return {
         ok: errors.length === 0,
         errors,
@@ -256,6 +274,67 @@ function normalizeCatalog(raw, defaultImageId) {
             : undefined,
     };
 }
+async function normalizeImageSource(product, path, defaultImageId, imageOptions, errors) {
+    const explicitImageId = optionalString(product.imageId);
+    const legacyImage = optionalString(product.image);
+    const imageId = explicitImageId ?? legacyImage;
+    const imageIdPath = explicitImageId ? `${path}.imageId` : `${path}.image`;
+    const imageUrl = optionalString(product.imageUrl);
+    const imageFile = optionalString(product.imageFile);
+    const provided = [imageId, imageUrl, imageFile].filter(Boolean);
+    if (provided.length > 1) {
+        errors.push({ path: `${path}.image`, message: "Use only one of imageId, imageUrl, or imageFile for each product." });
+        return undefined;
+    }
+    if (imageId) {
+        if (isHttpUrl(imageId)) {
+            errors.push({ path: imageIdPath, message: "imageId must be an uploaded OSS ID, not a URL. Move this value to imageUrl." });
+            return undefined;
+        }
+        return {
+            kind: "id",
+            imageId,
+            sourceField: explicitImageId ? "imageId" : "image",
+        };
+    }
+    if (imageUrl) {
+        if (!isHttpUrl(imageUrl)) {
+            errors.push({ path: `${path}.imageUrl`, message: "imageUrl must be a valid http(s) URL." });
+            return undefined;
+        }
+        try {
+            return await inspectImageUrl(imageUrl);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            errors.push({ path: `${path}.imageUrl`, message });
+            return undefined;
+        }
+    }
+    if (imageFile) {
+        if (isHttpUrl(imageFile)) {
+            errors.push({ path: `${path}.imageFile`, message: "imageFile must be a local file path. Move URLs to imageUrl." });
+            return undefined;
+        }
+        try {
+            return await inspectImageFile(imageFile, imageOptions);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            errors.push({ path: `${path}.imageFile`, message });
+            return undefined;
+        }
+    }
+    if (defaultImageId && !isHttpUrl(defaultImageId)) {
+        return {
+            kind: "default",
+            imageId: defaultImageId,
+            sourceField: "defaultImageId",
+        };
+    }
+    errors.push({ path: `${path}.imageId`, message: "Product must include imageId, imageUrl, or imageFile, or pass --default-image-id." });
+    return undefined;
+}
 async function readCatalogMapping(filePath) {
     try {
         const parsed = JSON.parse(stripJsonBom(await readFile(filePath, "utf8")));
@@ -264,6 +343,7 @@ async function readCatalogMapping(filePath) {
             generatedBy: "clink-dev-cli",
             updatedAt: parsed.updatedAt,
             products: parsed.products ?? {},
+            assets: parsed.assets ?? {},
         };
     }
     catch (error) {
@@ -282,12 +362,14 @@ function emptyMapping() {
         version: 1,
         generatedBy: "clink-dev-cli",
         products: {},
+        assets: {},
     };
 }
 function buildCatalogPlan(catalog, mapping, force) {
     const products = catalog.products.map((product) => {
         const mappedProduct = mapping.products[product.sourceId];
         const createProduct = force || !mappedProduct;
+        const image = planImage(product, mapping, createProduct);
         const prices = product.prices.map((price) => {
             const mappedPrice = mappedProduct?.prices?.[price.sourceId];
             const action = createProduct
@@ -309,12 +391,53 @@ function buildCatalogPlan(catalog, mapping, force) {
             name: product.name,
             action: createProduct ? "create_product" : "skip_existing_product",
             productId: mappedProduct?.productId,
+            image,
             prices,
         };
     });
     return {
         products,
         summary: summarizePlan(products),
+    };
+}
+function planImage(product, mapping, willCreateProduct) {
+    const source = product.imageSource;
+    if (!willCreateProduct) {
+        return {
+            action: "skip_existing_product",
+            sourceKind: source.kind,
+            source: imageSourceLabel(source),
+            ossId: source.kind === "id" || source.kind === "default" ? source.imageId : undefined,
+            sha256: imageSourceSha(source),
+            mimeType: imageSourceMime(source),
+            sizeBytes: imageSourceSize(source),
+        };
+    }
+    if (source.kind === "id") {
+        return {
+            action: "skip_existing_image_id",
+            sourceKind: source.kind,
+            source: source.imageId,
+            ossId: source.imageId,
+        };
+    }
+    if (source.kind === "default") {
+        return {
+            action: "use_default_image_id",
+            sourceKind: source.kind,
+            source: source.imageId,
+            ossId: source.imageId,
+        };
+    }
+    const cached = mapping.assets?.[source.sha256];
+    return {
+        action: cached?.ossId ? "reuse_cached_upload" : "upload",
+        sourceKind: source.kind,
+        source: imageSourceLabel(source),
+        ossId: cached?.ossId,
+        sha256: source.sha256,
+        mimeType: source.mimeType,
+        sizeBytes: source.sizeBytes,
     };
 }
 async function importCatalog(catalog, mapping, options) {
@@ -324,12 +447,28 @@ async function importCatalog(catalog, mapping, options) {
         createdPrices: 0,
         skippedProducts: 0,
         skippedPrices: 0,
+        uploadedImages: 0,
+        reusedImages: 0,
+        skippedImages: 0,
     };
     for (const product of catalog.products) {
         const mappedProduct = mapping.products[product.sourceId];
         const shouldCreateProduct = options.force || !mappedProduct;
         if (shouldCreateProduct) {
-            const body = productCreatePayload(product);
+            const imageResult = await resolveProductImage(product, mapping, options);
+            operations.push({
+                sourceId: product.sourceId,
+                action: imageResult.action,
+                image: imageResult.image,
+                result: imageResult.result,
+            });
+            if (imageResult.action === "upload_image")
+                summary.uploadedImages += 1;
+            if (imageResult.action === "reuse_image_upload")
+                summary.reusedImages += 1;
+            if (imageResult.action === "skip_image_upload")
+                summary.skippedImages += 1;
+            const body = productCreatePayload(product, imageResult.ossId);
             const result = await options.postProduct(body);
             const ids = extractProductIds(result);
             operations.push({
@@ -358,10 +497,12 @@ async function importCatalog(catalog, mapping, options) {
             continue;
         }
         summary.skippedProducts += 1;
+        summary.skippedImages += 1;
         operations.push({
             sourceId: product.sourceId,
             action: "skip_existing_product",
             productId: mappedProduct.productId,
+            image: planImage(product, mapping, false),
         });
         for (const price of product.prices) {
             const mappedPrice = mappedProduct.prices[price.sourceId];
@@ -407,12 +548,60 @@ async function importCatalog(catalog, mapping, options) {
         operations,
     };
 }
-function productCreatePayload(product) {
+async function resolveProductImage(product, mapping, options) {
+    const source = product.imageSource;
+    if (source.kind === "id" || source.kind === "default") {
+        return {
+            action: "skip_image_upload",
+            ossId: source.imageId,
+            image: planImage(product, mapping, true),
+        };
+    }
+    mapping.assets = mapping.assets ?? {};
+    const cached = mapping.assets[source.sha256];
+    if (cached?.ossId) {
+        return {
+            action: "reuse_image_upload",
+            ossId: cached.ossId,
+            image: planImage(product, mapping, true),
+        };
+    }
+    const asset = await loadImageUploadAsset(source);
+    const form = createImageUploadFormFromAsset(asset);
+    const result = await options.uploadImage(form);
+    const ossId = options.dryRun ? dryRunOssId(asset.sha256) : extractOssId(result);
+    if (!ossId) {
+        throw new Error(`Clink image upload response did not include ossId for catalog product "${product.sourceId}"`);
+    }
+    mapping.assets[asset.sha256] = {
+        ossId,
+        sourceKind: asset.sourceKind,
+        source: asset.source,
+        mimeType: asset.mimeType,
+        sizeBytes: asset.sizeBytes,
+        updatedAt: new Date().toISOString(),
+    };
+    return {
+        action: "upload_image",
+        ossId,
+        image: {
+            action: "upload",
+            sourceKind: source.kind,
+            source: imageSourceLabel(source),
+            ossId,
+            sha256: asset.sha256,
+            mimeType: asset.mimeType,
+            sizeBytes: asset.sizeBytes,
+        },
+        result,
+    };
+}
+function productCreatePayload(product, imageId) {
     return {
         name: product.name,
         localizedNames: product.localizedNames,
         description: product.description,
-        image: product.imageId,
+        image: imageId,
         taxCategory: product.taxCategory,
         priceList: product.prices.map(productPricePayload),
     };
@@ -480,12 +669,23 @@ function extractPriceId(result) {
     const data = result && typeof result === "object" ? result.data : undefined;
     return stringValue(data?.priceId);
 }
+function extractOssId(result) {
+    const data = result && typeof result === "object" ? result.data : undefined;
+    return stringValue(data?.ossId);
+}
+function dryRunOssId(sha256) {
+    return `dry_run_oss_${sha256.slice(0, 16)}`;
+}
 function summarizePlan(products) {
+    const images = products.map((product) => product.image);
     return {
         createProducts: products.filter((product) => product.action === "create_product").length,
         skipProducts: products.filter((product) => product.action === "skip_existing_product").length,
         createPrices: products.flatMap((product) => product.prices).filter((price) => price.action !== "skip_existing_price").length,
         skipPrices: products.flatMap((product) => product.prices).filter((price) => price.action === "skip_existing_price").length,
+        uploadImages: images.filter((image) => image.action === "upload").length,
+        reuseImages: images.filter((image) => image.action === "reuse_cached_upload").length,
+        skipImages: images.filter((image) => image.action !== "upload" && image.action !== "reuse_cached_upload").length,
     };
 }
 function formatValidationIssues(validation) {
@@ -503,7 +703,8 @@ function formatPlan(products) {
         const priceSummary = product.prices
             .map((price) => `${price.action}:${price.sourceId}`)
             .join(", ");
-        return `${product.action}: ${product.sourceId} (${product.name})${priceSummary ? ` -> ${priceSummary}` : ""}`;
+        const imageSummary = `image=${product.image.action}:${product.image.source}`;
+        return `${product.action}: ${product.sourceId} (${product.name}) ${imageSummary}${priceSummary ? ` -> ${priceSummary}` : ""}`;
     })
         .join("\n");
 }
@@ -559,6 +760,22 @@ function stringRecord(value) {
 }
 function isTaxCategory(value) {
     return value === "digital_goods_or_service" || value === "ebook" || value === "software_service";
+}
+function imageSourceLabel(source) {
+    if (source.kind === "id" || source.kind === "default")
+        return source.imageId;
+    if (source.kind === "file")
+        return source.imageFile;
+    return source.imageUrl;
+}
+function imageSourceSha(source) {
+    return source.kind === "file" || source.kind === "url" ? source.sha256 : undefined;
+}
+function imageSourceMime(source) {
+    return source.kind === "file" || source.kind === "url" ? source.mimeType : undefined;
+}
+function imageSourceSize(source) {
+    return source.kind === "file" || source.kind === "url" ? source.sizeBytes : undefined;
 }
 function stringValue(value) {
     return typeof value === "string" && value.length > 0 ? value : undefined;

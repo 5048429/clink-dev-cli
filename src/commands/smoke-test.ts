@@ -12,6 +12,7 @@ export function registerSmokeTest(program: Command): void {
     .option("--amount <amount>", "Checkout amount", "1")
     .option("--currency <currency>", "Checkout currency", "USD")
     .option("--name <name>", "Inline product name", "CLI Smoke Test Product")
+    .option("--merchant-reference-id <id>", "Merchant order/reference ID. Defaults to smoke-<timestamp>.")
     .option("--success-url <url>", "Success URL", "http://localhost:3000/success")
     .option("--cancel-url <url>", "Cancel URL", "http://localhost:3000/cancel")
     .option("--webhook-url <url>", "Optional local webhook URL to receive a signed fixture")
@@ -20,17 +21,20 @@ export function registerSmokeTest(program: Command): void {
       amount: string;
       currency: string;
       name: string;
+      merchantReferenceId?: string;
       successUrl: string;
       cancelUrl: string;
       webhookUrl?: string;
     }, command: Command) => {
       const { config, client } = await getCommandContext(command);
       const steps: unknown[] = [];
+      const merchantReferenceId = options.merchantReferenceId ?? `smoke-${Date.now()}`;
 
       const checkoutBody = {
         customerEmail: options.customerEmail,
         originalAmount: Number(options.amount),
         originalCurrency: options.currency.toUpperCase(),
+        merchantReferenceId,
         successUrl: options.successUrl,
         cancelUrl: options.cancelUrl,
         uiMode: "hostedPage",
@@ -45,13 +49,17 @@ export function registerSmokeTest(program: Command): void {
       };
 
       const checkout = await client.post("/checkout/session", { body: checkoutBody });
-      steps.push({ name: "checkout_session", ok: true, result: checkout });
+      const sessionId = extractDataString(checkout, "sessionId");
+      steps.push({ name: "checkout_session", ok: true, merchantReferenceId, sessionId, result: checkout });
 
       if (options.webhookUrl) {
         if (!config.webhookSigningKey) {
           steps.push({ name: "webhook_simulation", ok: false, error: "Missing CLINK_WEBHOOK_SIGNING_KEY" });
         } else {
-          const event = createWebhookFixture("order.succeeded");
+          const event = withSmokeReconciliationFields(createWebhookFixture("order.succeeded"), {
+            merchantReferenceId,
+            sessionId,
+          });
           const rawBody = JSON.stringify(event);
           const timestamp = String(Date.now());
           const signature = signWebhookPayload(config.webhookSigningKey, timestamp, rawBody);
@@ -74,8 +82,44 @@ export function registerSmokeTest(program: Command): void {
       }
 
       const ok = steps.every((step) => typeof step === "object" && step !== null && (step as { ok?: boolean }).ok);
-      printResult({ ok, steps }, config.outputMode, ok ? "Smoke test passed" : "Smoke test completed with failures");
+      const realPaymentVerification = realPaymentVerificationChecklist();
+      printResult(
+        { ok, steps, realPaymentVerification },
+        config.outputMode,
+        ok
+          ? `Smoke test passed. Real payment is not complete until the merchant order is paid and fulfillment/entitlement is complete.`
+          : "Smoke test completed with failures",
+      );
       if (!ok) process.exitCode = 1;
     });
 }
 
+function withSmokeReconciliationFields(
+  event: Record<string, unknown>,
+  values: { merchantReferenceId: string; sessionId?: string },
+): Record<string, unknown> {
+  const data = event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {};
+  event.data = {
+    ...data,
+    merchantReferenceId: values.merchantReferenceId,
+    sessionId: values.sessionId ?? data.sessionId,
+  };
+  return event;
+}
+
+function extractDataString(result: unknown, key: string): string | undefined {
+  if (!result || typeof result !== "object") return undefined;
+  const root = result as Record<string, unknown>;
+  const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
+  const value = data?.[key] ?? root[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function realPaymentVerificationChecklist(): string[] {
+  return [
+    "Open the real sandbox checkoutUrl and complete a sandbox payment.",
+    "Confirm the webhook handler returns 200 after signature verification.",
+    "Confirm the local order matched by both merchantReferenceId and sessionId is marked paid/completed.",
+    "Confirm entitlement, credits, download access, shipment, or other merchant fulfillment is completed.",
+  ];
+}

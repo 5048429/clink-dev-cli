@@ -85,6 +85,7 @@ clink webhook endpoint ensure \
   --url https://your-public-host.example.com/clink/webhook \
   --events core \
   --save-secret \
+  --sync-env-file .env.local \
   --json
 ```
 
@@ -140,7 +141,7 @@ Windows PowerShell 使用：
 2. 如果没有 Secret Key 且本地有浏览器：clink login && clink dashboard apikey ensure-secret --save --json
 3. clink checkout create ... --json
 4. clink api request GET /order --query pageNum=1 --query pageSize=20 --json
-5. 如需 webhook 自动配置：clink webhook endpoint ensure --url <public-webhook-url> --events core --save-secret --json
+5. 如需 webhook 自动配置：clink webhook endpoint ensure --url <public-webhook-url> --events core --save-secret --sync-env-file .env.local --json
 6. clink webhook simulate order.succeeded --forward-to <local-or-public-webhook-url> --json
 
 所有涉及 Secret Key、Dashboard token、webhook signing key 的输出都必须打码，不要写入源码。

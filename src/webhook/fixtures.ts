@@ -20,6 +20,8 @@ const CHECKOUT_EXPIRES_AT = "2025-01-15T12:45:00.000Z";
 const CHECKOUT_EXPIRED_AT = "2025-01-15T12:45:00.000Z";
 const ORDER_CREATED_AT = "2025-01-15T11:50:00.000Z";
 const ORDER_PAID_AT = "2025-01-15T11:55:00.000Z";
+const ORDER_CREATED_TIME = Date.parse(ORDER_CREATED_AT);
+const ORDER_PAYMENT_TIME = Date.parse(ORDER_PAID_AT);
 const SUBSCRIPTION_CREATED_AT = "2025-01-15T11:56:00.000Z";
 const SUBSCRIPTION_ACTIVATED_AT = "2025-01-15T11:57:00.000Z";
 const CURRENT_PERIOD_START = "2025-01-15T00:00:00.000Z";
@@ -55,10 +57,9 @@ function defaultDataForType(type: string): Record<string, unknown> {
 const fixtureBuilders: Record<WebhookFixtureType, () => Record<string, unknown>> = {
   "session.complete": () =>
     sessionFixture({
-      status: "complete",
+      status: "completed",
       paymentStatus: "paid",
       orderId: "ord_test_123",
-      completedAt: ORDER_PAID_AT,
       expiresAt: CHECKOUT_EXPIRES_AT,
     }),
   "session.expired": () =>
@@ -66,32 +67,31 @@ const fixtureBuilders: Record<WebhookFixtureType, () => Record<string, unknown>>
       status: "expired",
       paymentStatus: "unpaid",
       orderId: null,
-      completedAt: null,
       expiresAt: CHECKOUT_EXPIRED_AT,
     }),
   "order.created": () =>
     orderFixture({
-      status: "created",
-      paymentStatus: "unpaid",
-      failureCode: null,
-      failureMessage: null,
-      paidAt: null,
+      status: "pending",
+      paymentTime: null,
+      paymentExecutionDetails: [],
     }),
   "order.succeeded": () =>
     orderFixture({
-      status: "succeeded",
-      paymentStatus: "paid",
-      failureCode: null,
-      failureMessage: null,
-      paidAt: ORDER_PAID_AT,
+      status: "success",
+      paymentTime: ORDER_PAYMENT_TIME,
+      paymentExecutionDetails: [],
     }),
   "order.failed": () =>
     orderFixture({
       status: "failed",
-      paymentStatus: "failed",
-      failureCode: "card_declined",
-      failureMessage: "The payment method was declined in the local fixture.",
-      paidAt: null,
+      paymentTime: ORDER_PAYMENT_TIME,
+      paymentExecutionDetails: [
+        {
+          channelCode: "CARD",
+          originalFailureCode: "card_declined",
+          originalFailureMessage: "The payment method was declined in the local fixture.",
+        },
+      ],
     }),
   "subscription.created": () =>
     subscriptionFixture({
@@ -162,6 +162,18 @@ function baseLineItems(): Record<string, unknown>[] {
   ];
 }
 
+function basePriceDataList(): Record<string, unknown>[] {
+  return [
+    {
+      name: "Local webhook test plan",
+      quantity: 1,
+      unitAmount: 1999,
+      currency: "USD",
+      imageUrl: "https://merchant.example/assets/local-webhook-test.png",
+    },
+  ];
+}
+
 function baseMetadata(): Record<string, unknown> {
   return {
     environment: "local",
@@ -173,53 +185,67 @@ function sessionFixture(values: {
   status: string;
   paymentStatus: string;
   orderId: string | null;
-  completedAt: string | null;
   expiresAt: string;
 }): Record<string, unknown> {
   return {
-    object: "checkout.session",
     sessionId: "sess_test_123",
+    token: "tok_test_123",
     status: values.status,
     paymentStatus: values.paymentStatus,
     originalCurrency: "USD",
+    paymentCurrency: "USD",
     amountSubtotal: 1999,
-    amountTax: 0,
     amountTotal: 1999,
+    subscriptionId: null,
+    invoiceId: null,
+    orderId: values.orderId,
     merchantReferenceId: "order_test_123",
     customer: baseCustomer(),
-    orderId: values.orderId,
+    locale: "en-US",
+    uiMode: "hostedPage",
+    returnUrl: null,
     successUrl: "https://merchant.example/success",
     cancelUrl: "https://merchant.example/cancel",
-    createdAt: CHECKOUT_CREATED_AT,
-    completedAt: values.completedAt,
-    expiresAt: values.expiresAt,
+    created: CHECKOUT_CREATED_AT,
+    expire: values.expiresAt,
+    product: {
+      productId: "prd_test_123",
+      productName: "Local webhook test plan",
+    },
+    priceDataList: basePriceDataList(),
     metadata: baseMetadata(),
   };
 }
 
 function orderFixture(values: {
   status: string;
-  paymentStatus: string;
-  failureCode: string | null;
-  failureMessage: string | null;
-  paidAt: string | null;
+  paymentTime: number | null;
+  paymentExecutionDetails: Record<string, unknown>[];
 }): Record<string, unknown> {
   return {
-    object: "order",
     orderId: "ord_test_123",
+    type: "onetime",
     status: values.status,
-    paymentStatus: values.paymentStatus,
-    amount: 1999,
-    currency: "USD",
     merchantReferenceId: "order_test_123",
     sessionId: "sess_test_123",
-    customer: baseCustomer(),
-    lineItems: baseLineItems(),
-    failureCode: values.failureCode,
-    failureMessage: values.failureMessage,
-    createdAt: ORDER_CREATED_AT,
-    paidAt: values.paidAt,
+    customerId: "cus_test_123",
+    customerEmail: "test@example.com",
+    createTime: ORDER_CREATED_TIME,
+    productId: "prd_test_123",
+    priceId: "price_test_123",
+    priceDataList: basePriceDataList(),
+    paymentMethod: {
+      paymentMethodType: "CARD",
+      paymentInstrumentId: "pi_test_123",
+    },
+    paymentExecutionDetails: values.paymentExecutionDetails,
+    amountSubtotal: 1999,
+    amountTotal: 1999,
+    paymentCurrency: "USD",
+    originalCurrency: "USD",
+    paymentTime: values.paymentTime,
     metadata: baseMetadata(),
+    riskLevel: "low",
   };
 }
 

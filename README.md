@@ -136,6 +136,7 @@ clink webhook endpoint ensure \
   --url https://your-public-host.example.com/api/clink/webhook \
   --events core \
   --save-secret \
+  --sync-env-file .env.local \
   --json
 
 clink webhook endpoint update whk_xxx \
@@ -149,7 +150,7 @@ clink webhook endpoint rotate-secret whk_xxx --save-secret --json
 
 `webhook endpoint ensure` creates or updates the endpoint by URL. It is the recommended idempotent setup command for agents. Created and updated endpoints are enabled by default; pass `--disabled` only when you intentionally want to leave one disabled. Use `webhook endpoint update <endpoint-id>` when a local tunnel URL changes and you want to reuse an existing endpoint record instead of creating another one.
 
-`--save-secret` stores the returned signing secret in the current local profile for `clink webhook simulate/sign/verify`. For existing endpoints, Clink cannot return the old plaintext secret; when `--save-secret` or `--show-secret` is used, `ensure` requests the plaintext secret and automatically asks the API to rotate it if the old secret is unavailable. `--show-secret` prints the raw value only when you explicitly ask for it.
+`--save-secret` stores the returned signing secret in the current local profile for `clink webhook simulate/sign/verify`. `--sync-env-file <path>` writes or updates `CLINK_WEBHOOK_SIGNING_KEY` in a local env file after the plaintext signing secret is resolved; add `--restart-command "<command>"` when you want the CLI to restart a local server after writing the file. For existing endpoints, Clink cannot return the old plaintext secret; when `--save-secret`, `--show-secret`, or `--sync-env-file` is used, `ensure` requests the plaintext secret and automatically asks the API to rotate it if the old secret is unavailable. `--show-secret` prints the raw value only when you explicitly ask for it.
 
 Webhook endpoint URLs must start with `https://` and cannot use localhost, loopback, private, link-local, or multicast hosts. Public API request bodies use event names, not Dashboard numeric event codes. `--events core` expands to `session.complete`, `order.succeeded`, `order.failed`, `refund.succeeded`, `subscription.created`, and `invoice.paid`.
 
@@ -163,9 +164,9 @@ clink auth status
 clink product create --name "Starter" --image-id oss_xxx --tax-category software_service --amount 9.99 --currency USD --type recurring --interval month --default
 clink product list
 
-clink catalog validate --file ./clink-catalog.json --json
-clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
-clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+clink catalog validate --file ./clink-catalog.json --project-root . --public-dir public --json
+clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --project-root . --public-dir public --json
+clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --project-root . --public-dir public --json
 
 clink price create --product-id prd_xxx --amount 9.99 --currency USD --type recurring --interval month
 clink price list --product-id prd_xxx
@@ -192,12 +193,14 @@ clink payment instrument create --data '{"customerEmail":"test@example.com","pay
 clink api request GET /order --query pageNum=1 --query pageSize=20
 clink api request POST /refund --data '{"orderId":"order_xxx","refundMerchantOrderId":"refund_merchant_xxx","refundAmount":9.99}'
 
-clink webhook endpoint ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret --json
+clink webhook endpoint ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret --sync-env-file .env.local --json
 clink webhook simulate order.succeeded --secret env:CLINK_WEBHOOK_SIGNING_KEY --forward-to http://localhost:3000/api/clink/webhook
 
 clink doctor
 clink smoke-test
 ```
+
+`smoke-test` can create a checkout session and send a signed simulated webhook, but webhook HTTP 200 is not the real-payment finish line. After opening a real sandbox `checkoutUrl`, verify the local merchant order matched by both `merchantReferenceId` and `sessionId` is paid/completed, then verify entitlement, credits, shipment, download access, or other fulfillment is complete.
 
 Dashboard-assisted Secret Key discovery remains available when needed:
 
@@ -235,7 +238,7 @@ Agents should scan the merchant site, source code, CMS data, or pricing page and
       "sourceId": "starter-plan",
       "name": "Starter",
       "description": "Starter subscription plan",
-      "imageId": "oss_xxx",
+      "imageFile": "public/images/starter.png",
       "taxCategory": "software_service",
       "prices": [
         {
@@ -263,10 +266,18 @@ Agents should scan the merchant site, source code, CMS data, or pricing page and
 
 Use `sourceId` values from the scanned site, route, SKU, CMS ID, or generated slug. They must stay stable across runs because the mapping file stores `sourceId -> productId/priceId`.
 
+Each product must provide exactly one image source:
+
+- `imageId`: an existing Clink OSS image ID.
+- `imageUrl`: a public HTTP(S) image URL; the CLI downloads, validates, uploads, and caches it.
+- `imageFile`: a local image path resolved relative to `clink-catalog.json`; pass `--project-root` and `--public-dir` to also resolve project/public assets such as `/images/starter.png`.
+
+`catalog validate` checks that product images exist, are valid `jpg/jpeg/png/gif/webp` images, and are at most 5 MB. URL strings are rejected when placed in `imageId`; use `imageUrl` instead. `catalog plan` reports which images will be uploaded, reused from the sha256 cache, or skipped because an OSS ID/product mapping already exists. `catalog import` uploads `imageUrl` and `imageFile` assets to `/product/image/upload`, uses the returned `ossId` when creating the product, and stores `sha256 -> ossId` in the catalog mapping file to avoid duplicate uploads.
+
 ```bash
-clink catalog validate --file ./clink-catalog.json --json
-clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
-clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --json
+clink catalog validate --file ./clink-catalog.json --project-root . --public-dir public --json
+clink catalog plan --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --project-root . --public-dir public --json
+clink catalog import --file ./clink-catalog.json --mapping-file ./.clink/catalog-map.json --project-root . --public-dir public --json
 ```
 
 Pass `--dry-run` before `catalog import` to inspect the Product API request bodies without writing Clink data or the mapping file:
@@ -275,7 +286,7 @@ Pass `--dry-run` before `catalog import` to inspect the Product API request bodi
 clink --dry-run --json catalog import --file ./clink-catalog.json
 ```
 
-If scanned products do not have uploaded Clink image OSS IDs yet, pass one placeholder with `--default-image-id oss_xxx` or add `imageId` per product after uploading images through Dashboard or `product create --image-file`.
+If scanned products do not have uploaded Clink image OSS IDs yet, prefer `imageUrl` or `imageFile` so the CLI can upload them automatically. Use `--default-image-id oss_xxx` only as a deliberate fallback placeholder.
 
 ## Checkout Sessions
 

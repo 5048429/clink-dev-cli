@@ -168,3 +168,31 @@ describe("checkout create dry-run", () => {
     });
   });
 });
+
+describe("checkout get dry-run", () => {
+  it("accepts a hosted checkout URL and extracts the session ID", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "checkout",
+      "get",
+      "https://uat-checkout.clinkbill.com/pay/sess_abc123xyz",
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      sessionId: string;
+      result: { request: { method: string; url: string } };
+    };
+    expect(output).toMatchObject({
+      sessionId: "sess_abc123xyz",
+      result: {
+        request: {
+          method: "GET",
+          url: "https://uat-api.clinkbill.com/api/checkout/session/sess_abc123xyz",
+        },
+      },
+    });
+  });
+});
