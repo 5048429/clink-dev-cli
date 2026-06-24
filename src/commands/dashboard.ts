@@ -17,6 +17,7 @@ import {
 import { resolveRuntimeConfig, saveProfile } from "../config.js";
 import { maskSecret, printResult, requireOption } from "../output.js";
 import type { DashboardConsoleProfile, GlobalOptions } from "../types.js";
+import { registerWebhookEndpointSubcommands } from "./webhook-endpoints.js";
 
 const DASHBOARD_WEBHOOK_EVENTS = [
   "order.created",
@@ -352,7 +353,10 @@ export function registerDashboard(program: Command): void {
       );
     });
 
-  const webhook = dashboard.command("webhook").description("Manage Dashboard webhook endpoints");
+  const webhook = dashboard.command("webhook").description("Manage Clink webhook endpoints with the Secret Key API");
+  registerWebhookEndpointSubcommands(webhook, { legacyDashboardOptions: true });
+  // Public Secret Key endpoint management supersedes the legacy Dashboard Console implementation below.
+  return;
 
   webhook
     .command("events")

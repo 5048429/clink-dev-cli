@@ -421,25 +421,27 @@ describe("Dashboard merchant and webhook helpers", () => {
     expect(result.stdout).not.toContain(rawToken);
 
     const output = JSON.parse(result.stdout) as {
-      merchantId: string;
-      plan: Array<{ step: string; result?: { request?: { headers?: Record<string, string>; body?: Record<string, unknown> } } }>;
+      ignoredMerchantId?: string;
+      saved: boolean;
+      result: { request: { method: string; url: string; headers: Record<string, string>; body: Record<string, unknown> } };
     };
-    expect(output.merchantId).toBe("mcht_123");
-    expect(output.plan.map((step) => step.step)).toEqual([
-      "list_webhooks",
-      "create_if_missing",
-      "update_if_existing_events_differ",
-      "enable_webhook",
-      "save_signing_key",
-    ]);
-    expect(output.plan[0].result?.request?.headers?.Authorization).toBe("Bearer [masked]");
-    expect(output.plan[1].result?.request?.body).toMatchObject({
-      endpoint: "https://example.com/api/clink/webhook",
-      eventType: "2,14",
+    expect(output.ignoredMerchantId).toBe("mcht_123");
+    expect(output.saved).toBe(true);
+    expect(output.result.request).toMatchObject({
+      method: "PUT",
+      url: "https://uat-api.clinkbill.com/api/webhook/endpoints/ensure",
+      headers: {
+        "X-API-KEY": "[masked]",
+        "X-Timestamp": "[generated]",
+        "Content-Type": "application/json",
+      },
     });
-    expect(output.plan[3].result?.request?.body).toMatchObject({
-      webhookKeyId: "[created-or-existing-webhook-key-id]",
-      status: "1",
+    expect(output.result.request.body).toMatchObject({
+      url: "https://example.com/api/clink/webhook",
+      events: ["order.succeeded", "invoice.paid"],
+      enabled: true,
+      returnSigningSecret: true,
+      rotateSecretIfUnavailable: true,
     });
   });
 
@@ -466,27 +468,21 @@ describe("Dashboard merchant and webhook helpers", () => {
     expect(result.stderr).toBe("");
     expect(result.stdout).not.toContain(rawToken);
     expect(JSON.parse(result.stdout)).toMatchObject({
-      webhookKeyId: "whk_123",
-      status: "1",
-      plan: [
-        {
-          step: "enable_webhook",
-          result: {
-            request: {
-              method: "PUT",
-              url: "https://uat-dashboard.clinkbill.com/prod-api/platform/webhook/updateStatus",
-              body: {
-                webhookKeyId: "whk_123",
-                status: "1",
-              },
-            },
+      endpointId: "whk_123",
+      result: {
+        request: {
+          method: "POST",
+          url: "https://uat-api.clinkbill.com/api/webhook/endpoints/whk_123/enable",
+          headers: {
+            "X-API-KEY": "[masked]",
+            "X-Timestamp": "[generated]",
           },
         },
-      ],
+      },
     });
   });
 
-  it("rejects Dashboard webhook event lists that exceed the current UAT limit", () => {
+  it("expands all webhook events to the current Secret Key API-supported core set", () => {
     const rawToken = "satoken_dashboard_access_token_abcdef1234567890";
     const result = runClink(
       [
@@ -517,13 +513,19 @@ describe("Dashboard merchant and webhook helpers", () => {
       },
     );
 
-    expect(result.status).not.toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.status).toBe(0);
     expect(result.stderr).not.toContain(rawToken);
-    expect(JSON.parse(result.stderr)).toMatchObject({
-      ok: false,
+    const output = JSON.parse(result.stdout) as { result: { request: { body: Record<string, unknown> } } };
+    expect(output.result.request.body).toMatchObject({
+      events: [
+        "session.complete",
+        "order.succeeded",
+        "order.failed",
+        "refund.succeeded",
+        "subscription.created",
+        "invoice.paid",
+      ],
     });
-    expect(result.stderr).toContain("Use --events core");
   });
 });
 

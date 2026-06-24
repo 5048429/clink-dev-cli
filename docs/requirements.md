@@ -30,6 +30,7 @@ The first release should support:
 - agent-produced product catalog validation, planning, and import with local sourceId mapping
 - checkout session creation with inline one-time product data
 - subscription creation with existing product, price, and payment instrument IDs
+- Secret Key API webhook endpoint events/list/create/update/delete/enable/disable/rotate-secret/ensure
 - local webhook event simulation with Clink-compatible HMAC signing
 - integration doctor checks
 - smoke-test command for checkout and webhook verification
@@ -50,7 +51,6 @@ The first release should support:
 
 Future versions should add:
 
-- webhook endpoint management once ClinkBill exposes a public endpoint API
 - event list, replay, and trigger APIs
 - `clink listen` for local webhook forwarding
 - OpenAPI-generated typed client
@@ -67,7 +67,19 @@ clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox
 clink auth status
 ```
 
-After this, product, price, checkout, subscription, doctor, smoke-test, and local webhook commands use the configured Secret Key. `clink login` and Dashboard Console APIs are optional fallback tools for Dashboard-only operations, not prerequisites for normal Secret Key authentication.
+After this, product, price, checkout, subscription, webhook endpoint management, doctor, smoke-test, and local webhook commands use the configured Secret Key. `clink login` and Dashboard Console APIs are optional fallback tools for Dashboard-only operations, not prerequisites for normal Secret Key authentication.
+
+## Webhook Endpoint Flow
+
+Webhook endpoint management uses the public Secret Key API. Agents should prefer the top-level endpoint commands:
+
+```bash
+clink webhook endpoint events --json
+clink webhook endpoint ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret --json
+clink webhook endpoint list --json
+```
+
+`dashboard webhook` is a compatibility alias for older scripts, but it no longer requires a Dashboard Console token for endpoint management. The Secret Key selects the current merchant. Request bodies use webhook event names, not Dashboard numeric event codes. `--events core` expands to the currently supported core delivery events.
 
 ## Catalog Import Flow
 

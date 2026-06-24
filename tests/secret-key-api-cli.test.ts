@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ExitCode } from "../src/exit-codes.js";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -98,7 +97,7 @@ describe("Secret Key API commands", () => {
     });
   });
 
-  it("keeps Dashboard-only webhook management explicit when no Console token is available", () => {
+  it("dry-runs webhook endpoint ensure through the Secret Key API without a Console token", () => {
     const result = runClink([
       "--json",
       "--dry-run",
@@ -111,9 +110,58 @@ describe("Secret Key API commands", () => {
       "core",
     ]);
 
-    expect(result.status).toBe(ExitCode.AUTH_REQUIRED);
-    const error = JSON.parse(result.stderr) as { error: string; exitCode: number };
-    expect(error.exitCode).toBe(ExitCode.AUTH_REQUIRED);
-    expect(error.error).toContain("official Secret Key API coverage does not include Dashboard webhook management");
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      result: { request: { method: string; url: string; headers: Record<string, string>; body: Record<string, unknown> } };
+    };
+    expect(output.result.request).toMatchObject({
+      method: "PUT",
+      url: "https://uat-api.clinkbill.com/api/webhook/endpoints/ensure",
+      headers: {
+        "X-API-KEY": "[masked]",
+        "X-Timestamp": "[generated]",
+        "Content-Type": "application/json",
+      },
+      body: {
+        url: "https://example.com/api/clink/webhook",
+        events: [
+          "session.complete",
+          "order.succeeded",
+          "order.failed",
+          "refund.succeeded",
+          "subscription.created",
+          "invoice.paid",
+        ],
+        enabled: true,
+      },
+    });
+  });
+
+  it("dry-runs webhook endpoint update with only secret rotation", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "webhook",
+      "endpoint",
+      "update",
+      "whk_123",
+      "--rotate-secret",
+      "--save-secret",
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      rotateResult: { request: { method: string; url: string; headers: Record<string, string> } };
+    };
+    expect(output.rotateResult.request).toMatchObject({
+      method: "POST",
+      url: "https://uat-api.clinkbill.com/api/webhook/endpoints/whk_123/rotate-secret",
+      headers: {
+        "X-API-KEY": "[masked]",
+        "X-Timestamp": "[generated]",
+      },
+    });
   });
 });

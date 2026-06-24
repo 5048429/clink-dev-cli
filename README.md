@@ -86,7 +86,7 @@ clink auth set --webhook-secret env:CLINK_WEBHOOK_SIGNING_KEY --env sandbox
 
 ### Dashboard Console Login
 
-Use `clink login` only when a workflow needs the UAT Dashboard Console identity, for example calling Dashboard internal APIs during MVP validation. It is optional for product, price, checkout, subscription, order, refund, payment, billing portal, `api request`, doctor, smoke-test, and local webhook commands when a Secret Key is already configured:
+Use `clink login` only when a workflow needs the UAT Dashboard Console identity, for example resolving a Secret Key from a logged-in Dashboard session. It is optional for product, price, checkout, subscription, order, refund, payment, billing portal, webhook endpoint management, `api request`, doctor, smoke-test, and local webhook commands when a Secret Key is already configured:
 
 ```bash
 clink login
@@ -122,35 +122,34 @@ clink dashboard apikey ensure-secret --save --json
 
 `dashboard apikey ensure-secret` first calls the Dashboard API key list endpoint. If a Secret Key already exists, it uses that key. If no Secret Key exists, it initializes the Dashboard standard Publishable Key and Secret Key pair. Secret values are masked by default; pass `--show-secret` only when you intentionally need the raw value in the terminal.
 
-### Dashboard Webhook Setup
+### Webhook Endpoint Setup
 
-After `clink login`, the CLI can also configure UAT Dashboard webhook endpoints with the saved Dashboard token:
+Webhook endpoint management uses the Secret Key API and does not require `clink login` or Playwright. The top-level command is `clink webhook endpoint ...`; `clink dashboard webhook ...` remains as a compatibility alias for older scripts, but it also uses `X-API-KEY` now.
 
 ```bash
-clink dashboard merchant list --json
-clink dashboard webhook events
-clink dashboard webhook list --json
+clink webhook endpoint events --json
+clink webhook endpoint list --json
 
-clink dashboard webhook ensure \
+clink webhook endpoint ensure \
   --url https://your-public-host.example.com/api/clink/webhook \
   --events core \
   --save-secret \
   --json
 
-clink dashboard webhook update wh_xxx \
+clink webhook endpoint update whk_xxx \
   --url https://new-public-host.example.com/api/clink/webhook \
-  --events core \
-  --save-secret
+  --events core
 
-clink dashboard webhook enable wh_xxx
-clink dashboard webhook disable wh_xxx
+clink webhook endpoint enable whk_xxx
+clink webhook endpoint disable whk_xxx
+clink webhook endpoint rotate-secret whk_xxx --save-secret --json
 ```
 
-`dashboard webhook ensure` first lists the current merchant's endpoints. If the URL already exists, it updates the selected events or remark when needed. If it does not exist, it creates the endpoint. Created and updated endpoints are enabled by default; pass `--disabled` only when you intentionally want to leave one disabled. Use `dashboard webhook update <webhook-key-id>` when a local tunnel URL changes and you want to reuse the existing Dashboard webhook record instead of creating another one. The returned signing key is masked by default; `--save-secret` stores it in the current local profile for `clink webhook simulate/sign/verify`, and `--show-secret` prints the raw value only when you explicitly ask for it.
+`webhook endpoint ensure` creates or updates the endpoint by URL. It is the recommended idempotent setup command for agents. Created and updated endpoints are enabled by default; pass `--disabled` only when you intentionally want to leave one disabled. Use `webhook endpoint update <endpoint-id>` when a local tunnel URL changes and you want to reuse an existing endpoint record instead of creating another one.
 
-If your Dashboard account can access multiple merchants, pass `--merchant-id mcht_xxx`. Dashboard requires webhook endpoint URLs to start with `https://`, so local testing normally needs a tunnel or deployed callback URL. The CLI accepts readable event names such as `order.succeeded`, but submits the Dashboard numeric event codes used by the UAT webhook sender. The current UAT Dashboard backend rejects very long comma-separated event lists; use `--events core` or a shorter explicit list instead of `all`.
+`--save-secret` stores the returned signing secret in the current local profile for `clink webhook simulate/sign/verify`. For existing endpoints, Clink cannot return the old plaintext secret; when `--save-secret` or `--show-secret` is used, `ensure` requests the plaintext secret and automatically asks the API to rotate it if the old secret is unavailable. `--show-secret` prints the raw value only when you explicitly ask for it.
 
-Important Secret Key boundary: the current official OpenAPI spec covers payment, checkout, product, price, subscription, order, refund, payment instrument, billing portal, coupon, promotion code, and test-clock APIs, but it does not expose a webhook endpoint management API. Therefore `clink dashboard webhook ensure/list/create/update/enable/disable` still requires `clink login` until ClinkBill publishes a Secret Key-compatible webhook management endpoint. Use `clink api request` for any official OpenAPI path that does not yet have a dedicated CLI wrapper.
+Webhook endpoint URLs must start with `https://` and cannot use localhost, loopback, private, link-local, or multicast hosts. Public API request bodies use event names, not Dashboard numeric event codes. `--events core` expands to `session.complete`, `order.succeeded`, `order.failed`, `refund.succeeded`, `subscription.created`, and `invoice.paid`.
 
 ## MVP Commands
 
@@ -191,20 +190,22 @@ clink payment instrument create --data '{"customerEmail":"test@example.com","pay
 clink api request GET /order --query pageNum=1 --query pageSize=20
 clink api request POST /refund --data '{"orderId":"order_xxx","refundMerchantOrderId":"refund_merchant_xxx","refundAmount":9.99}'
 
+clink webhook endpoint ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret --json
 clink webhook simulate order.succeeded --secret env:CLINK_WEBHOOK_SIGNING_KEY --forward-to http://localhost:3000/api/clink/webhook
 
 clink doctor
 clink smoke-test
 ```
 
-Dashboard-assisted operations remain available when needed:
+Dashboard-assisted Secret Key discovery remains available when needed:
 
 ```bash
 clink login
 clink dashboard whoami
 clink dashboard apikey ensure-secret --save
-clink dashboard webhook ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret
 ```
+
+`clink dashboard webhook ensure --url https://your-public-host.example.com/api/clink/webhook --events core --save-secret` is kept for compatibility and uses the same Secret Key API as `clink webhook endpoint ensure`.
 
 `product create --json` promotes the useful IDs to the top level so agents do not need to dig through the raw API response:
 

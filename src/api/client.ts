@@ -34,6 +34,13 @@ export class ClinkApiClient {
     return this.request<T, TBody, TQuery>("POST", path, options);
   }
 
+  async patch<T = unknown, TBody = unknown, TQuery extends object = Record<string, QueryValue>>(
+    path: string,
+    options: RequestOptions<TBody, TQuery> = {},
+  ): Promise<T> {
+    return this.request<T, TBody, TQuery>("PATCH", path, options);
+  }
+
   async put<T = unknown, TBody = unknown, TQuery extends object = Record<string, QueryValue>>(
     path: string,
     options: RequestOptions<TBody, TQuery> = {},

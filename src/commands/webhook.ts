@@ -11,9 +11,15 @@ import {
   verifyWebhookPayload,
 } from "../webhook/signature.js";
 import { getCommandContext } from "./helpers.js";
+import { registerWebhookEndpointSubcommands } from "./webhook-endpoints.js";
 
 export function registerWebhook(program: Command): void {
-  const webhook = program.command("webhook").description("Simulate, sign, and verify Clink webhooks locally");
+  const webhook = program.command("webhook").description("Simulate, sign, verify, and manage Clink webhooks");
+
+  const endpoint = webhook
+    .command("endpoint")
+    .description("Manage webhook endpoints with the Secret Key API");
+  registerWebhookEndpointSubcommands(endpoint);
 
   webhook
     .command("fixture")
