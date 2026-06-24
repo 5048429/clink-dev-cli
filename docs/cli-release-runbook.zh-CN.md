@@ -8,7 +8,7 @@
 - 开发者本机确认全局 npm 可用时，可以使用 `npm install -g github:5048429/clink-dev-cli`。
 - 因此，面向用户的能力必须合并到 GitHub 默认分支 `main`。
 - 仅推送 feature/integration 分支不等于发布。
-- GitHub 安装必须使用仓库提交的 `dist/` 产物，不能依赖安装环境现场编译 TypeScript、安装 Node 类型声明或运行 `prepare`。
+- GitHub 安装必须使用仓库提交的 `dist/` 产物，不能依赖安装环境现场编译 TypeScript 或安装 Node 类型声明；`prepare` 只能做轻量 `dist/` 存在性校验，不能构建。
 - 每次新增会影响 agent 接入流程的 CLI 能力，都必须完成远程安装验证。
 
 ## 1. 发布前检查

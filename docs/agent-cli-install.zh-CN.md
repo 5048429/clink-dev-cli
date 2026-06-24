@@ -33,7 +33,7 @@ clink --version
 clink --help
 ```
 
-GitHub 安装会直接使用仓库提交的 `dist/` 产物，不需要在目标项目里现场编译 TypeScript 或安装 Node 类型声明。
+GitHub 安装会直接使用仓库提交的 `dist/` 产物，不需要在目标项目里现场编译 TypeScript 或安装 Node 类型声明。安装期 `prepare` 只校验 `dist/` 是否存在。
 
 下文统一写 `clink`。如果使用本地安装，把 `clink` 替换为对应的本地 binary 路径。
 
@@ -122,7 +122,7 @@ Windows PowerShell 使用：
   npm install -g github:5048429/clink-dev-cli
   clink --version
 
-GitHub 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。
+GitHub 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。即使看到 prepare，它也只应校验 dist，不应编译 TypeScript。
 
 如果本地安装失败，请说明脱敏错误并重试一次：
   npm install --prefix ./.clink-tools github:5048429/clink-dev-cli

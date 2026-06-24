@@ -26,7 +26,7 @@ npm install -g github:5048429/clink-dev-cli
 clink --help
 ```
 
-GitHub installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations.
+GitHub installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations. The install-time `prepare` hook only verifies that `dist/` is present.
 
 During CLI development in this repository:
 

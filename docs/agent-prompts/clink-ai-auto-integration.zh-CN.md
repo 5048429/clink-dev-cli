@@ -39,7 +39,7 @@ npm install --prefix ./.clink-tools github:5048429/clink-dev-cli
 npm install -g github:5048429/clink-dev-cli
 ```
 
-GitHub 安装应使用仓库内已提交的 `dist/` 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。安装后必须检查命令能力：
+GitHub 安装应使用仓库内已提交的 `dist/` 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。即使看到 prepare，它也只应校验 dist，不应编译 TypeScript。安装后必须检查命令能力：
 
 ```bash
 clink auth secret set --help
