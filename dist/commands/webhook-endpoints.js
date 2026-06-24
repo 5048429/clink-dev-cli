@@ -6,6 +6,47 @@ import { saveProfile } from "../config.js";
 import { maskSecret, parseIntegerOption, printResult, requireOption } from "../output.js";
 import { getCommandContext } from "./helpers.js";
 const WEBHOOK_ENDPOINT_PATH = "/webhook/endpoints";
+const WEBHOOK_EVENT_CATALOG = [
+    { name: "order.created", code: 1, description: "Order created" },
+    { name: "order.succeeded", code: 2, description: "Order payment succeeded" },
+    { name: "order.failed", code: 3, description: "Order payment failed" },
+    { name: "refund.created", code: 4, description: "Refund created" },
+    { name: "refund.succeeded", code: 5, description: "Refund succeeded" },
+    { name: "refund.failed", code: 6, description: "Refund failed" },
+    { name: "subscription.created", code: 7, description: "Subscription created" },
+    { name: "subscription.trialing", code: 8, description: "Subscription trialing" },
+    { name: "subscription.activated", code: 9, description: "Subscription activated" },
+    { name: "subscription.incomplete_expired", code: 10, description: "Subscription incomplete expired" },
+    { name: "subscription.past_due", code: 11, description: "Subscription past due" },
+    { name: "subscription.cancelled", code: 12, description: "Subscription cancelled" },
+    { name: "invoice.open", code: 13, description: "Invoice open" },
+    { name: "invoice.paid", code: 14, description: "Invoice paid" },
+    { name: "invoice.void", code: 15, description: "Invoice void" },
+    { name: "order.next_action", code: 16, description: "Order next action required" },
+    { name: "subscription.updated.plan_changed", code: 17, description: "Subscription plan changed" },
+    { name: "subscription.updated.plan_change_canceled", code: 18, description: "Subscription plan change canceled" },
+    { name: "subscription.updated.renewed", code: 19, description: "Subscription renewed" },
+    { name: "subscription.updated.cancel_at_period_end_set", code: 20, description: "Subscription cancel at period end set" },
+    { name: "subscription.updated.cancel_at_period_end_revoked", code: 21, description: "Subscription cancel at period end revoked" },
+    { name: "session.complete", code: 22, description: "Checkout session completed" },
+    { name: "session.expired", code: 23, description: "Checkout session expired" },
+    { name: "dispute.created", code: 24, description: "Dispute created" },
+    { name: "dispute.updated", code: 25, description: "Dispute updated" },
+    { name: "dispute.won", code: 26, description: "Dispute won" },
+    { name: "dispute.lost", code: 27, description: "Dispute lost" },
+    { name: "dispute.closed", code: 28, description: "Dispute closed" },
+    { name: "customer.verify", code: 29, description: "Customer verified" },
+    { name: "payment_method.added", code: 30, description: "Payment method added" },
+    { name: "payment_method.default_change", code: 31, description: "Default payment method changed" },
+    { name: "risk_rule.updated", code: 32, description: "Risk rule updated" },
+    { name: "agent_order.succeeded", code: 33, description: "Agent order succeeded" },
+    { name: "agent_order.failed", code: 34, description: "Agent order failed" },
+    { name: "agent_refund.succeeded", code: 35, description: "Agent refund succeeded" },
+    { name: "agent_refund.failed", code: 36, description: "Agent refund failed" },
+    { name: "agent_refund.approved", code: 37, description: "Agent refund approved" },
+    { name: "agent_refund.rejected", code: 38, description: "Agent refund rejected" },
+];
+const WEBHOOK_ALL_EVENTS = WEBHOOK_EVENT_CATALOG.map((event) => event.name);
 const WEBHOOK_CORE_EVENTS = [
     "session.complete",
     "order.succeeded",
@@ -14,7 +55,7 @@ const WEBHOOK_CORE_EVENTS = [
     "subscription.created",
     "invoice.paid",
 ];
-const WEBHOOK_SUPPORTED_EVENTS = new Set(WEBHOOK_CORE_EVENTS);
+const WEBHOOK_SUPPORTED_EVENTS = new Set(WEBHOOK_ALL_EVENTS);
 const WEBHOOK_SIGNING_KEY_ENV = "CLINK_WEBHOOK_SIGNING_KEY";
 const execAsync = promisify(exec);
 export function registerWebhookEndpointSubcommands(parent, options = {}) {
@@ -26,7 +67,11 @@ export function registerWebhookEndpointSubcommands(parent, options = {}) {
         const result = await client.get("/webhook/events");
         printResult({
             result,
-            fallbackCoreEvents: WEBHOOK_CORE_EVENTS,
+            fallbackSupportedEvents: WEBHOOK_EVENT_CATALOG,
+            fallbackAliases: {
+                all: WEBHOOK_ALL_EVENTS,
+                core: WEBHOOK_CORE_EVENTS,
+            },
         }, config.outputMode, config.dryRun ? "Webhook event list dry-run generated. Use --json to view request metadata." : formatEventResult(result));
     });
     const list = parent
@@ -380,12 +425,14 @@ function isBlockedWebhookHost(hostname) {
 function parseWebhookEvents(value, allowUnknownEvents) {
     requireOption("--events", value);
     const normalized = value.trim().toLowerCase();
-    const events = normalized === "core" || normalized === "all"
+    const events = normalized === "core"
         ? [...WEBHOOK_CORE_EVENTS]
-        : value
-            .split(",")
-            .map((event) => event.trim())
-            .filter(Boolean);
+        : normalized === "all"
+            ? [...WEBHOOK_ALL_EVENTS]
+            : value
+                .split(",")
+                .map((event) => event.trim())
+                .filter(Boolean);
     if (events.length === 0) {
         throw new Error("Option --events must include at least one event, core, or all.");
     }
@@ -560,13 +607,18 @@ function formatEventResult(result) {
     const data = getEnvelopeData(result);
     const events = isRecord(data) && Array.isArray(data.events) ? data.events : [];
     if (events.length === 0)
-        return WEBHOOK_CORE_EVENTS.join("\n");
+        return formatEventCatalog(WEBHOOK_EVENT_CATALOG);
     return events
         .map((event) => {
         if (!isRecord(event))
             return String(event);
         return [event.name, event.code, event.description].filter(Boolean).join("\t");
     })
+        .join("\n");
+}
+function formatEventCatalog(events) {
+    return events
+        .map((event) => [event.name, event.code, event.description].join("\t"))
         .join("\n");
 }
 function formatEndpointList(result) {

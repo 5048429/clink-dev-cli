@@ -79,7 +79,7 @@ clink webhook endpoint ensure --url https://your-public-host.example.com/api/cli
 clink webhook endpoint list --json
 ```
 
-`dashboard webhook` is a compatibility alias for older scripts, but it no longer requires a Dashboard Console token for endpoint management. The Secret Key selects the current merchant. Request bodies use webhook event names, not Dashboard numeric event codes. `--events core` expands to the currently supported core delivery events.
+`dashboard webhook` is a compatibility alias for older scripts, but it no longer requires a Dashboard Console token for endpoint management. The Secret Key selects the current merchant. Request bodies use webhook event names, not Dashboard numeric event codes. `--events core` expands to the six commonly used delivery events; `--events all` expands to the full 38-event Secret Key API catalog.
 
 ## Catalog Import Flow
 

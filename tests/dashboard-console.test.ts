@@ -482,7 +482,7 @@ describe("Dashboard merchant and webhook helpers", () => {
     });
   });
 
-  it("expands all webhook events to the current Secret Key API-supported core set", () => {
+  it("expands all webhook events to the full Secret Key API-supported event set", () => {
     const rawToken = "satoken_dashboard_access_token_abcdef1234567890";
     const result = runClink(
       [
@@ -516,16 +516,17 @@ describe("Dashboard merchant and webhook helpers", () => {
     expect(result.status).toBe(0);
     expect(result.stderr).not.toContain(rawToken);
     const output = JSON.parse(result.stdout) as { result: { request: { body: Record<string, unknown> } } };
-    expect(output.result.request.body).toMatchObject({
-      events: [
-        "session.complete",
-        "order.succeeded",
-        "order.failed",
-        "refund.succeeded",
-        "subscription.created",
-        "invoice.paid",
-      ],
-    });
+    const events = output.result.request.body.events as string[];
+    expect(events).toHaveLength(38);
+    expect(events).toEqual(expect.arrayContaining([
+      "order.created",
+      "session.complete",
+      "session.expired",
+      "dispute.won",
+      "customer.verify",
+      "payment_method.added",
+      "agent_refund.rejected",
+    ]));
   });
 });
 

@@ -89,7 +89,7 @@ clink webhook endpoint ensure \
   --json
 ```
 
-`--events core` 会提交事件名：`session.complete`、`order.succeeded`、`order.failed`、`refund.succeeded`、`subscription.created`、`invoice.paid`。公开 API 不接受 Dashboard 数字 event code。
+`--events core` 会提交事件名：`session.complete`、`order.succeeded`、`order.failed`、`refund.succeeded`、`subscription.created`、`invoice.paid`。`--events all` 会提交当前公开 Secret Key API 支持的全部 38 个事件名。公开 API 不接受 Dashboard 数字 event code。
 
 6. 本地验证 webhook 签名：
 

@@ -170,6 +170,92 @@ describe("Secret Key API commands", () => {
     });
   });
 
+  it("prints the full fallback webhook event catalog during dry-run", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "webhook",
+      "endpoint",
+      "events",
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      fallbackSupportedEvents: Array<{ name: string; code: number; description: string }>;
+      fallbackAliases: { all: string[]; core: string[] };
+    };
+    expect(output.fallbackSupportedEvents).toHaveLength(38);
+    expect(output.fallbackSupportedEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "order.created", code: 1 }),
+      expect.objectContaining({ name: "session.complete", code: 22 }),
+      expect.objectContaining({ name: "agent_refund.rejected", code: 38 }),
+    ]));
+    expect(output.fallbackAliases.all).toHaveLength(38);
+    expect(output.fallbackAliases.core).toEqual([
+      "session.complete",
+      "order.succeeded",
+      "order.failed",
+      "refund.succeeded",
+      "subscription.created",
+      "invoice.paid",
+    ]);
+  });
+
+  it("expands webhook endpoint --events all to the full Secret Key API event catalog", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "webhook",
+      "endpoint",
+      "ensure",
+      "--url",
+      "https://example.com/api/clink/webhook",
+      "--events",
+      "all",
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      result: { request: { body: { events: string[] } } };
+    };
+    expect(output.result.request.body.events).toHaveLength(38);
+    expect(output.result.request.body.events).toEqual(expect.arrayContaining([
+      "order.created",
+      "session.expired",
+      "dispute.won",
+      "customer.verify",
+      "payment_method.default_change",
+      "agent_refund.rejected",
+    ]));
+  });
+
+  it("accepts newly supported webhook event names without --allow-unknown-events", () => {
+    const result = runClink([
+      "--json",
+      "--dry-run",
+      "webhook",
+      "endpoint",
+      "create",
+      "--url",
+      "https://example.com/api/clink/webhook",
+      "--events",
+      "dispute.won,customer.verify,agent_refund.approved",
+    ]);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    const output = JSON.parse(result.stdout) as {
+      result: { request: { body: { events: string[] } } };
+    };
+    expect(output.result.request.body.events).toEqual([
+      "dispute.won",
+      "customer.verify",
+      "agent_refund.approved",
+    ]);
+  });
+
   it("dry-runs webhook endpoint update with only secret rotation", () => {
     const result = runClink([
       "--json",

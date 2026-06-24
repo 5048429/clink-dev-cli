@@ -152,7 +152,7 @@ clink webhook endpoint rotate-secret whk_xxx --save-secret --json
 
 `--save-secret` stores the returned signing secret in the current local profile for `clink webhook simulate/sign/verify`. `--sync-env-file <path>` writes or updates `CLINK_WEBHOOK_SIGNING_KEY` in a local env file after the plaintext signing secret is resolved; add `--restart-command "<command>"` when you want the CLI to restart a local server after writing the file. For existing endpoints, Clink cannot return the old plaintext secret; when `--save-secret`, `--show-secret`, or `--sync-env-file` is used, `ensure` requests the plaintext secret and automatically asks the API to rotate it if the old secret is unavailable. `--show-secret` prints the raw value only when you explicitly ask for it.
 
-Webhook endpoint URLs must start with `https://` and cannot use localhost, loopback, private, link-local, or multicast hosts. Public API request bodies use event names, not Dashboard numeric event codes. `--events core` expands to `session.complete`, `order.succeeded`, `order.failed`, `refund.succeeded`, `subscription.created`, and `invoice.paid`.
+Webhook endpoint URLs must start with `https://` and cannot use localhost, loopback, private, link-local, or multicast hosts. Public API request bodies use event names, not Dashboard numeric event codes. `--events core` expands to `session.complete`, `order.succeeded`, `order.failed`, `refund.succeeded`, `subscription.created`, and `invoice.paid`; `--events all` expands to the full 38-event Secret Key API catalog returned by `clink webhook endpoint events`.
 
 ## MVP Commands
 
