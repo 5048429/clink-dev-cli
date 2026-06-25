@@ -1,6 +1,6 @@
 # clink-dev-cli 使用文档
 
-`clink-dev-cli` 是面向 ClinkBill 商户开发者和 AI agent 的集成工具。它通过 Secret Key 调用 Clink API，帮助完成 sandbox 环境下的产品与价格导入、checkout 创建、subscription 创建、webhook endpoint 管理、本地 webhook 验签模拟和集成 smoke test。
+`clink-dev-cli` 是面向 ClinkBill 商户开发者和 AI agent 的集成工具。它通过 Secret Key 调用 Clink API，帮助完成产品与价格导入、checkout 创建、subscription 创建、webhook endpoint 管理、本地 webhook 验签模拟和集成 smoke test。CLI 内置 sandbox 和 production 环境，并支持自定义命名环境以适配 Clink 的不同请求域名（见“环境管理”）。
 
 这份文档介绍日常使用方式。CLI 仓库开发和发布流程请看 `docs/cli-release-runbook.zh-CN.md`。
 
@@ -38,6 +38,46 @@ clink auth secret set --help
 clink api request --help
 clink catalog import --help
 clink webhook endpoint ensure --help
+```
+
+## 环境管理（请求域名）
+
+CLI 内置两个环境：`sandbox`（默认，`https://uat-api.clinkbill.com/api/`）和 `production`（`https://api.clinkbill.com/api/`）。Clink 还有多套联调/自建环境，你可以在本地配置里自定义命名环境，无需修改代码或重新安装。每个环境会同时切换 **Clink API base URL** 和 **Dashboard Console 地址**（Dashboard API、登录页、ClientID）。
+
+新增一个自定义环境：
+
+```bash
+clink env add staging \
+  --api-base-url https://staging-api.clinkbill.com/api/ \
+  --dashboard-base-url https://staging-dashboard.clinkbill.com/prod-api/ \
+  --dashboard-login-url https://staging-dashboard.clinkbill.com/auth/login \
+  --dashboard-client-id <client-id>
+```
+
+只有 `--api-base-url` 是必填的；未提供的 dashboard 字段会回落到 UAT 默认值。
+
+查看、使用和删除：
+
+```bash
+clink env list                  # 列出内置 + 自定义环境
+clink env show staging --json   # 查看某个环境解析后的完整地址
+clink --env staging auth status # 用 staging 环境执行命令，base URL 自动切换
+clink env remove staging        # 删除自定义环境
+```
+
+自定义环境保存在 `~/.clink-dev-cli/config.json` 的 `environments` 字段下。内置环境（`sandbox`/`production`）不能删除；如需用同名覆盖内置环境，`env add` 要加 `--force`。
+
+选择当前环境的方式（优先级从高到低）：
+
+- 命令行 `--env <name>`
+- `CLINK_ENV` 环境变量（支持内置名和自定义名）
+- 已保存 profile 里的 `environment`
+- 默认 `sandbox`
+
+`--base-url` 和 `CLINK_BASE_URL` 仍可临时覆盖当前环境解析出的 API base URL，适合一次性调试，优先级高于环境注册表。
+
+```bash
+clink --env staging --base-url https://tmp-api.clinkbill.com/api/ auth status
 ```
 
 ## Secret Key 认证
@@ -85,7 +125,7 @@ clink dashboard apikey ensure-secret --save --json
 clink auth status --json
 ```
 
-`clink login` 会打开 Dashboard 登录页。用户只在浏览器里手动登录；CLI 不会输入密码、绕过 MFA、读取验证码或解决 CAPTCHA。
+`clink login` 会打开 Dashboard 登录页。用户只在浏览器里手动登录；CLI 不会输入密码、绕过 MFA、读取验证码或解决 CAPTCHA。打开的 Dashboard 地址会跟随当前环境，默认是 sandbox 的 UAT Dashboard；如需对自定义环境登录，先用 `--env <name>` 选择，例如 `clink --env staging login`。
 
 拿到 Secret Key 后，后续产品、价格、checkout、subscription、order、refund、webhook endpoint、doctor、smoke-test 和 `api request` 都应使用 Secret Key API。正常集成不需要 Dashboard Console token。
 
