@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { BASE_URLS, DEFAULT_PROFILE } from "./constants.js";
+import { getEnvironmentDefinition, resolveDashboardEndpoints } from "./environments.js";
 import type { ClinkEnvironment, GlobalOptions, RuntimeConfig, StoredConfig, StoredProfile } from "./types.js";
 
 const DEFAULT_CONFIG_PATH = join(homedir(), ".clink-dev-cli", "config.json");
@@ -24,6 +25,7 @@ export async function readStoredConfig(): Promise<StoredConfig> {
     return {
       defaultProfile: parsed.defaultProfile ?? DEFAULT_PROFILE,
       profiles: parsed.profiles ?? {},
+      environments: parsed.environments ?? {},
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -77,10 +79,15 @@ export async function saveProfile(name: string, profile: StoredProfile): Promise
 
 export async function resolveRuntimeConfig(options: GlobalOptions): Promise<RuntimeConfig> {
   const profileName = options.profile ?? DEFAULT_PROFILE;
-  const profile = await getProfile(profileName);
+  const stored = await readStoredConfig();
+  const profile = stored.profiles[profileName] ?? {};
 
   const environment = options.env ?? profile.environment ?? readEnvironmentFromEnv() ?? "sandbox";
-  const baseUrl = normalizeBaseUrl(options.baseUrl ?? profile.baseUrl ?? process.env.CLINK_BASE_URL ?? BASE_URLS[environment]);
+  const envDef = getEnvironmentDefinition(stored, environment);
+  const baseUrl = normalizeBaseUrl(
+    options.baseUrl ?? profile.baseUrl ?? process.env.CLINK_BASE_URL ?? envDef?.apiBaseUrl ?? BASE_URLS.sandbox,
+  );
+  const dashboardEndpoints = resolveDashboardEndpoints(envDef);
 
   const apiKeyRef = resolveSecretRef(options.apiKey, ["CLINK_SECRET_KEY", "CLINK_API_KEY"]);
   const profileApiKey = profile.apiKeyEnv
@@ -101,6 +108,7 @@ export async function resolveRuntimeConfig(options: GlobalOptions): Promise<Runt
     apiKey,
     apiKeySource,
     dashboard: profile.dashboard,
+    dashboardEndpoints,
     webhookSigningKey: profileWebhookKey.secret ?? envWebhookKey.secret,
     webhookSigningKeySource: profileWebhookKey.source ?? envWebhookKey.source,
     dryRun: Boolean(options.dryRun),
@@ -109,11 +117,10 @@ export async function resolveRuntimeConfig(options: GlobalOptions): Promise<Runt
 }
 
 function readEnvironmentFromEnv(): ClinkEnvironment | undefined {
-  const raw = process.env.CLINK_ENV;
-  if (raw === "sandbox" || raw === "production") return raw;
-  return undefined;
+  const raw = process.env.CLINK_ENV?.trim();
+  return raw ? raw : undefined;
 }
 
-function normalizeBaseUrl(value: string): string {
+export function normalizeBaseUrl(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;
 }

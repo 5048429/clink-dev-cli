@@ -1,20 +1,21 @@
-import { DASHBOARD_UAT_BASE_URL, DASHBOARD_UAT_LOGIN_URL } from "../constants.js";
 import { DashboardConsoleClient, extractDashboardUserSummary, getDashboardInfoFromPage, maskDashboardProfile, waitForDashboardCredentials, } from "../dashboard-console.js";
-import { getConfigPath, saveProfile } from "../config.js";
+import { getConfigPath, resolveRuntimeConfig, saveProfile } from "../config.js";
 import { parseIntegerOption, printResult } from "../output.js";
 export function registerLogin(program) {
     program
         .command("login")
-        .description("Open the UAT Dashboard for manual login and save Dashboard Console credentials")
+        .description("Open the Dashboard for manual login and save Dashboard Console credentials")
         .option("--timeout-ms <ms>", "How long to wait for the Dashboard getInfo request", "300000")
         .option("--browser-channel <channel>", "Playwright browser channel, for example chrome or msedge")
         .action(async (options, command) => {
         const global = command.optsWithGlobals();
         const profileName = global.profile ?? "default";
+        const config = await resolveRuntimeConfig(global);
+        const { baseUrl: dashboardBaseUrl, loginUrl: dashboardLoginUrl } = config.dashboardEndpoints;
         const outputMode = global.json ? "json" : "pretty";
         const timeoutMs = parseIntegerOption("--timeout-ms", options.timeoutMs);
         if (outputMode !== "json") {
-            console.log(`Opening ${DASHBOARD_UAT_LOGIN_URL}`);
+            console.log(`Opening ${dashboardLoginUrl}`);
             console.log("Finish login in the browser. The CLI will capture the Dashboard getInfo request after login.");
         }
         const { chromium } = await import("playwright");
@@ -25,29 +26,29 @@ export function registerLogin(program) {
             const credentialsPromise = waitForDashboardCredentials(page, timeoutMs);
             credentialsPromise.catch(() => undefined);
             try {
-                await page.goto(DASHBOARD_UAT_LOGIN_URL, { waitUntil: "domcontentloaded" });
+                await page.goto(dashboardLoginUrl, { waitUntil: "domcontentloaded" });
             }
             catch (error) {
                 if (outputMode !== "json") {
                     console.warn(`Could not auto-open the Dashboard login page: ${error.message}`);
-                    console.warn(`Keep the browser open and navigate manually to: ${DASHBOARD_UAT_LOGIN_URL}`);
+                    console.warn(`Keep the browser open and navigate manually to: ${dashboardLoginUrl}`);
                 }
             }
             const credentials = await credentialsPromise;
             const client = new DashboardConsoleClient({
-                baseUrl: DASHBOARD_UAT_BASE_URL,
+                baseUrl: dashboardBaseUrl,
                 accessToken: credentials.accessToken,
                 clientId: credentials.clientId,
             });
             const verification = await getVerifiedDashboardInfo(client, page, {
-                baseUrl: DASHBOARD_UAT_BASE_URL,
+                baseUrl: dashboardBaseUrl,
                 accessToken: credentials.accessToken,
                 clientId: credentials.clientId,
             }, outputMode);
             const user = extractDashboardUserSummary(verification);
             const dashboardProfile = {
-                baseUrl: DASHBOARD_UAT_BASE_URL,
-                loginUrl: DASHBOARD_UAT_LOGIN_URL,
+                baseUrl: dashboardBaseUrl,
+                loginUrl: dashboardLoginUrl,
                 clientId: credentials.clientId,
                 accessToken: credentials.accessToken,
                 tokenSource: credentials.source,
@@ -55,7 +56,7 @@ export function registerLogin(program) {
                 user,
             };
             await saveProfile(profileName, {
-                environment: "sandbox",
+                environment: config.environment,
                 dashboard: dashboardProfile,
             });
             const maskedProfile = maskDashboardProfile(dashboardProfile);

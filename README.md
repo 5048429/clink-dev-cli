@@ -7,6 +7,7 @@ This CLI is designed for AI-assisted and Dashboard-light integration workflows. 
 ## Quick Links
 
 - [CLI 使用文档](docs/cli-usage.zh-CN.md)
+- [AI 自动接入官网与 Developers 更新 PRD](docs/ai-integration-website-developers-prd.zh-CN.md)
 - [Agent CLI install guide](docs/agent-cli-install.zh-CN.md)
 - [Requirements](docs/requirements.md)
 
@@ -59,6 +60,25 @@ npm run pack:dry-run
 ```
 
 ## Configure
+
+### Environments (Request Domains)
+
+Built-in environments are `sandbox` (default, `https://uat-api.clinkbill.com/api/`) and `production` (`https://api.clinkbill.com/api/`). You can define additional named environments locally without changing code. Each environment switches both the Clink API base URL and the Dashboard Console addresses (Dashboard API, login URL, ClientID):
+
+```bash
+clink env add staging \
+  --api-base-url https://staging-api.clinkbill.com/api/ \
+  --dashboard-base-url https://staging-dashboard.clinkbill.com/prod-api/ \
+  --dashboard-login-url https://staging-dashboard.clinkbill.com/auth/login \
+  --dashboard-client-id <client-id>
+
+clink env list
+clink env show staging
+clink --env staging auth status
+clink env remove staging
+```
+
+Custom environments are stored in `~/.clink-dev-cli/config.json` under `environments`. Built-in names cannot be removed, and overriding a built-in name requires `--force`. The active environment is selected with `--env <name>`, the `CLINK_ENV` variable, or the saved profile; `--base-url` and `CLINK_BASE_URL` still override the resolved API base URL for one-off use.
 
 ### Sandbox Without Browser
 
@@ -395,6 +415,7 @@ clink checkout create ... --json
 ## Project Docs
 
 - [CLI 使用文档](docs/cli-usage.zh-CN.md)
+- [AI 自动接入官网与 Developers 更新 PRD](docs/ai-integration-website-developers-prd.zh-CN.md)
 - [Requirements](docs/requirements.md)
 - [Agent CLI install guide](docs/agent-cli-install.zh-CN.md)
 - [CLI 更新与发布操作指南](docs/cli-release-runbook.zh-CN.md)

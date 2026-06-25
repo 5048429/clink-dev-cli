@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { BASE_URLS, DEFAULT_PROFILE } from "./constants.js";
+import { getEnvironmentDefinition, resolveDashboardEndpoints } from "./environments.js";
 const DEFAULT_CONFIG_PATH = join(homedir(), ".clink-dev-cli", "config.json");
 function emptyConfig() {
     return {
@@ -19,6 +20,7 @@ export async function readStoredConfig() {
         return {
             defaultProfile: parsed.defaultProfile ?? DEFAULT_PROFILE,
             profiles: parsed.profiles ?? {},
+            environments: parsed.environments ?? {},
         };
     }
     catch (error) {
@@ -63,9 +65,12 @@ export async function saveProfile(name, profile) {
 }
 export async function resolveRuntimeConfig(options) {
     const profileName = options.profile ?? DEFAULT_PROFILE;
-    const profile = await getProfile(profileName);
+    const stored = await readStoredConfig();
+    const profile = stored.profiles[profileName] ?? {};
     const environment = options.env ?? profile.environment ?? readEnvironmentFromEnv() ?? "sandbox";
-    const baseUrl = normalizeBaseUrl(options.baseUrl ?? profile.baseUrl ?? process.env.CLINK_BASE_URL ?? BASE_URLS[environment]);
+    const envDef = getEnvironmentDefinition(stored, environment);
+    const baseUrl = normalizeBaseUrl(options.baseUrl ?? profile.baseUrl ?? process.env.CLINK_BASE_URL ?? envDef?.apiBaseUrl ?? BASE_URLS.sandbox);
+    const dashboardEndpoints = resolveDashboardEndpoints(envDef);
     const apiKeyRef = resolveSecretRef(options.apiKey, ["CLINK_SECRET_KEY", "CLINK_API_KEY"]);
     const profileApiKey = profile.apiKeyEnv
         ? resolveSecretRef(`env:${profile.apiKeyEnv}`, [])
@@ -83,6 +88,7 @@ export async function resolveRuntimeConfig(options) {
         apiKey,
         apiKeySource,
         dashboard: profile.dashboard,
+        dashboardEndpoints,
         webhookSigningKey: profileWebhookKey.secret ?? envWebhookKey.secret,
         webhookSigningKeySource: profileWebhookKey.source ?? envWebhookKey.source,
         dryRun: Boolean(options.dryRun),
@@ -90,12 +96,10 @@ export async function resolveRuntimeConfig(options) {
     };
 }
 function readEnvironmentFromEnv() {
-    const raw = process.env.CLINK_ENV;
-    if (raw === "sandbox" || raw === "production")
-        return raw;
-    return undefined;
+    const raw = process.env.CLINK_ENV?.trim();
+    return raw ? raw : undefined;
 }
-function normalizeBaseUrl(value) {
+export function normalizeBaseUrl(value) {
     return value.endsWith("/") ? value : `${value}/`;
 }
 //# sourceMappingURL=config.js.map

@@ -1,6 +1,23 @@
-export type ClinkEnvironment = "sandbox" | "production";
+export type BuiltInEnvironment = "sandbox" | "production";
+
+// `(string & {})` keeps literal autocomplete for built-in names while still
+// accepting arbitrary user-defined environment names.
+export type ClinkEnvironment = BuiltInEnvironment | (string & {});
 
 export type OutputMode = "pretty" | "json";
+
+export interface EnvironmentDefinition {
+  apiBaseUrl: string;
+  dashboardBaseUrl?: string;
+  dashboardLoginUrl?: string;
+  dashboardClientId?: string;
+}
+
+export interface DashboardEndpoints {
+  baseUrl: string;
+  loginUrl: string;
+  clientId: string;
+}
 
 export interface GlobalOptions {
   json?: boolean;
@@ -18,6 +35,7 @@ export interface RuntimeConfig {
   apiKey?: string;
   apiKeySource?: string;
   dashboard?: DashboardConsoleProfile;
+  dashboardEndpoints: DashboardEndpoints;
   webhookSigningKey?: string;
   webhookSigningKeySource?: string;
   dryRun: boolean;
@@ -57,4 +75,5 @@ export interface StoredProfile {
 export interface StoredConfig {
   defaultProfile?: string;
   profiles: Record<string, StoredProfile>;
+  environments?: Record<string, EnvironmentDefinition>;
 }

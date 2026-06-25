@@ -1,5 +1,17 @@
-export type ClinkEnvironment = "sandbox" | "production";
+export type BuiltInEnvironment = "sandbox" | "production";
+export type ClinkEnvironment = BuiltInEnvironment | (string & {});
 export type OutputMode = "pretty" | "json";
+export interface EnvironmentDefinition {
+    apiBaseUrl: string;
+    dashboardBaseUrl?: string;
+    dashboardLoginUrl?: string;
+    dashboardClientId?: string;
+}
+export interface DashboardEndpoints {
+    baseUrl: string;
+    loginUrl: string;
+    clientId: string;
+}
 export interface GlobalOptions {
     json?: boolean;
     profile?: string;
@@ -15,6 +27,7 @@ export interface RuntimeConfig {
     apiKey?: string;
     apiKeySource?: string;
     dashboard?: DashboardConsoleProfile;
+    dashboardEndpoints: DashboardEndpoints;
     webhookSigningKey?: string;
     webhookSigningKeySource?: string;
     dryRun: boolean;
@@ -50,4 +63,5 @@ export interface StoredProfile {
 export interface StoredConfig {
     defaultProfile?: string;
     profiles: Record<string, StoredProfile>;
+    environments?: Record<string, EnvironmentDefinition>;
 }

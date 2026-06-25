@@ -10,6 +10,7 @@ import { registerCatalog } from "./commands/catalog.js";
 import { registerCheckout } from "./commands/checkout.js";
 import { registerDashboard } from "./commands/dashboard.js";
 import { registerDoctor } from "./commands/doctor.js";
+import { registerEnv } from "./commands/env.js";
 import { registerInit } from "./commands/init.js";
 import { registerLogin } from "./commands/login.js";
 import { registerOrder } from "./commands/order.js";
@@ -32,7 +33,7 @@ async function main(): Promise<void> {
     .version(packageJson.version)
     .option("--json", "Output machine-readable JSON")
     .option("--profile <name>", "Use a named local profile", "default")
-    .option("--env <environment>", "sandbox or production")
+    .option("--env <environment>", "Environment name: sandbox, production, or a custom env (see clink env)")
     .option("--base-url <url>", "Override Clink API base URL")
     .option("--api-key <value>", "Secret key literal or env:CLINK_SECRET_KEY")
     .option("--dry-run", "Print request metadata instead of executing Clink API writes");
@@ -49,6 +50,7 @@ async function main(): Promise<void> {
   registerApi(program);
   registerAuth(program);
   registerCatalog(program);
+  registerEnv(program);
   registerLogin(program);
   registerDashboard(program);
   registerInit(program);
