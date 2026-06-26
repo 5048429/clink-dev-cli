@@ -5,8 +5,6 @@ import { BASE_URLS, DEFAULT_PROFILE } from "./constants.js";
 import { getEnvironmentDefinition, resolveDashboardEndpoints } from "./environments.js";
 import type { ClinkEnvironment, GlobalOptions, RuntimeConfig, StoredConfig, StoredProfile } from "./types.js";
 
-const DEFAULT_CONFIG_PATH = join(homedir(), ".clink-dev-cli", "config.json");
-
 function emptyConfig(): StoredConfig {
   return {
     defaultProfile: DEFAULT_PROFILE,
@@ -15,7 +13,7 @@ function emptyConfig(): StoredConfig {
 }
 
 export function getConfigPath(): string {
-  return process.env.CLINK_CONFIG_PATH || DEFAULT_CONFIG_PATH;
+  return process.env.CLINK_CONFIG_PATH || defaultConfigPath();
 }
 
 export async function readStoredConfig(): Promise<StoredConfig> {
@@ -29,10 +27,38 @@ export async function readStoredConfig(): Promise<StoredConfig> {
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if (!process.env.CLINK_CONFIG_PATH) {
+        return readLegacyStoredConfig();
+      }
       return emptyConfig();
     }
     throw error;
   }
+}
+
+async function readLegacyStoredConfig(): Promise<StoredConfig> {
+  try {
+    const raw = await readFile(legacyConfigPath(), "utf8");
+    const parsed = JSON.parse(raw) as StoredConfig;
+    return {
+      defaultProfile: parsed.defaultProfile ?? DEFAULT_PROFILE,
+      profiles: parsed.profiles ?? {},
+      environments: parsed.environments ?? {},
+    };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return emptyConfig();
+    }
+    throw error;
+  }
+}
+
+function defaultConfigPath(): string {
+  return join(homedir(), ".clink-integ-cli", "config.json");
+}
+
+function legacyConfigPath(): string {
+  return join(homedir(), ".clink-dev-cli", "config.json");
 }
 
 export async function writeStoredConfig(config: StoredConfig): Promise<void> {

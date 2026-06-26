@@ -24,7 +24,7 @@ git checkout -b feature/framework-starters
 Agent prompt:
 
 ```text
-You are working in the clink-dev-cli repo.
+You are working in the clink-integ-cli repo.
 
 Implement framework starter generation for Next.js App Router, Express, and FastAPI.
 
@@ -71,7 +71,7 @@ git checkout -b feature/openapi-client
 Agent prompt:
 
 ```text
-You are working in the clink-dev-cli repo.
+You are working in the clink-integ-cli repo.
 
 Add an OpenAPI-backed client layer for the Clink API.
 
@@ -112,7 +112,7 @@ git checkout -b feature/webhook-tooling
 Agent prompt:
 
 ```text
-You are working in the clink-dev-cli repo.
+You are working in the clink-integ-cli repo.
 
 Improve webhook developer tooling.
 
@@ -165,7 +165,7 @@ git checkout -b feature/tests-exit-codes
 Agent prompt:
 
 ```text
-You are working in the clink-dev-cli repo.
+You are working in the clink-integ-cli repo.
 
 Add automated tests and finish exit-code behavior.
 
@@ -205,7 +205,7 @@ git checkout -b research/opencli-dashboard
 Agent prompt:
 
 ```text
-You are working in the clink-dev-cli repo.
+You are working in the clink-integ-cli repo.
 
 Research an optional OpenCLI-based Dashboard automation adapter for ClinkBill.
 

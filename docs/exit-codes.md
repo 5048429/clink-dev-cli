@@ -1,6 +1,6 @@
 # Exit Codes
 
-`clink-dev-cli` uses stable exit codes so humans, CI jobs, and AI agents can branch on failures.
+`clink-integ-cli` uses stable exit codes so humans, CI jobs, and AI agents can branch on failures.
 
 | Code | Name | Meaning |
 |---:|---|---|

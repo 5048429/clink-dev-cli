@@ -340,7 +340,7 @@ async function readCatalogMapping(filePath) {
         const parsed = JSON.parse(stripJsonBom(await readFile(filePath, "utf8")));
         return {
             version: 1,
-            generatedBy: "clink-dev-cli",
+            generatedBy: "clink-integ-cli",
             updatedAt: parsed.updatedAt,
             products: parsed.products ?? {},
             assets: parsed.assets ?? {},
@@ -360,7 +360,7 @@ async function writeCatalogMapping(filePath, mapping) {
 function emptyMapping() {
     return {
         version: 1,
-        generatedBy: "clink-dev-cli",
+        generatedBy: "clink-integ-cli",
         products: {},
         assets: {},
     };

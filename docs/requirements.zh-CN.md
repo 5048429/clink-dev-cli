@@ -1,8 +1,8 @@
-# Clink Dev CLI 中文需求说明
+# Clink Integ CLI 中文需求说明
 
 ## 1. 项目定位
 
-`clink-dev-cli` 是面向 ClinkBill 商户开发者和 AI Coding Agent 的命令行工具。
+`clink-integ-cli` 是面向 ClinkBill 商户开发者和 AI Coding Agent 的命令行工具。
 
 它的核心目标是：让开发者在拿到 ClinkBill sandbox Secret Key 后，可以尽量少进入 Dashboard，通过 CLI 完成支付接入的技术配置、代码生成、接口调用、本地 webhook 验证和 smoke test。
 
@@ -36,7 +36,7 @@
 - checkout、subscription、product、price、webhook 的流程分散
 - 不同框架需要重复写相似的 starter 代码
 
-`clink-dev-cli` 要把这些动作收敛成稳定、可脚本化、AI 友好的命令。
+`clink-integ-cli` 要把这些动作收敛成稳定、可脚本化、AI 友好的命令。
 
 ## 4. 第一阶段目标
 

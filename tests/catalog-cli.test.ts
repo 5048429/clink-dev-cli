@@ -299,7 +299,7 @@ describe("catalog commands", () => {
         mappingPath,
         `${JSON.stringify({
           version: 1,
-          generatedBy: "clink-dev-cli",
+          generatedBy: "clink-integ-cli",
           products: {
             "starter-plan": {
               productId: "prd_existing",

@@ -2,7 +2,7 @@
 
 Date: 2026-06-17
 
-Status: legacy research note. Current `clink-dev-cli` webhook endpoint management uses the Secret Key API through `clink webhook endpoint ensure`. New agent integrations must not follow the manual webhook signing-key copy flow below unless the target platform has no agent-accessible Secret write capability. For cloud-hosted, low-code, cloud IDE, and sandbox integrations, prefer `clink webhook endpoint ensure --events core --save-secret --show-secret --json`, then write the returned signing secret into backend/platform Secret `CLINK_WEBHOOK_SIGNING_KEY` and redeploy.
+Status: legacy research note. Current `clink-integ-cli` webhook endpoint management uses the Secret Key API through `clink webhook endpoint ensure`. New agent integrations must not follow the manual webhook signing-key copy flow below unless the target platform has no agent-accessible Secret write capability. For cloud-hosted, low-code, cloud IDE, and sandbox integrations, prefer `clink webhook endpoint ensure --events core --save-secret --show-secret --json`, then write the returned signing secret into backend/platform Secret `CLINK_WEBHOOK_SIGNING_KEY` and redeploy.
 
 ## Recommendation
 
@@ -10,7 +10,7 @@ Recommendation: **defer**.
 
 Do not add OpenCLI to `package.json`, do not ship production browser automation, and do not build a first-party `clink` Dashboard adapter now. The API gap is real, especially for API key setup and webhook endpoint registration, but the remaining Dashboard-only work is security-sensitive, often one-time, and not stable enough to justify production automation in the merchant CLI.
 
-The best next step is to keep `clink-dev-cli` API-first and add public API commands where the ClinkBill API already exists. If browser automation is still needed after repeated sandbox onboarding pain, build it as an external experimental OpenCLI plugin with human review gates, not as a core dependency.
+The best next step is to keep `clink-integ-cli` API-first and add public API commands where the ClinkBill API already exists. If browser automation is still needed after repeated sandbox onboarding pain, build it as an external experimental OpenCLI plugin with human review gates, not as a core dependency.
 
 ## Sources Reviewed
 
@@ -33,7 +33,7 @@ The best next step is to keep `clink-dev-cli` API-first and add public API comma
 
 ## Current Public API And CLI Coverage
 
-The current `clink-dev-cli` already supports:
+The current `clink-integ-cli` already supports:
 
 - local auth profiles for existing Secret Keys and webhook signing keys
 - product image upload, product create, product list
@@ -140,7 +140,7 @@ The following must require explicit human review and final confirmation in the D
 
 ## Proposed OpenCLI Adapter Commands
 
-If the experiment is approved later, keep it outside this package first. Do not add OpenCLI as a dependency of `clink-dev-cli`. The command surface should live in an OpenCLI plugin or separate research package.
+If the experiment is approved later, keep it outside this package first. Do not add OpenCLI as a dependency of `clink-integ-cli`. The command surface should live in an OpenCLI plugin or separate research package.
 
 Recommended OpenCLI-native commands:
 
@@ -184,7 +184,7 @@ Do not implement these commands until the adapter is approved. If implemented la
 ### Webhook Signing Key Viewing
 
 - Legacy state at the time of this research: signing key became available only after Dashboard webhook endpoint registration; no public retrieval endpoint had been reviewed.
-- Current state: webhook endpoint management is supported by Secret Key API commands in `clink-dev-cli`.
+- Current state: webhook endpoint management is supported by Secret Key API commands in `clink-integ-cli`.
 - Current flow: run `clink webhook endpoint ensure --save-secret --show-secret --json`, then sync the returned or rotated signing key into `CLINK_WEBHOOK_SIGNING_KEY` in the app runtime and redeploy.
 - Required user action only when blocked: if the platform does not expose a Secret write tool/API to the agent, the human adds `CLINK_WEBHOOK_SIGNING_KEY` to the platform backend Secret manager.
 

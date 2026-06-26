@@ -2,18 +2,18 @@
 
 ## 1. 背景
 
-ClinkBill 已经具备面向 AI agent 的 `clink-dev-cli` 和 `clink-integ-skills` 接入能力。新的接入目标不再是让开发者照着文档在 Dashboard 里逐项创建产品、复制价格 ID、配置 webhook 和复制 signing key，而是让用户只完成必要的人类授权动作：
+ClinkBill 已经具备面向 AI agent 的 `clink-integ-cli` 和 `clink-integ-skills` 接入能力。新的接入目标不再是让开发者照着文档在 Dashboard 里逐项创建产品、复制价格 ID、配置 webhook 和复制 signing key，而是让用户只完成必要的人类授权动作：
 
 - 本地桌面环境：用户通过 `clink login` 在浏览器里手动登录 Dashboard，CLI 继续读取或初始化 sandbox Secret Key。
 - 云端、低代码、托管 IDE 或无浏览器环境：用户在 Dashboard 创建并复制一次 sandbox Secret Key，交给 agent 写入平台 Secret 或安全环境变量。
 
-完成 Secret Key 准备后，产品创建、价格创建、图片上传、webhook endpoint 创建、webhook signing key 同步、测试 checkout、签名模拟 webhook、真实支付验收提示等操作都应由 agent 通过 `clink-dev-cli` 自动执行。
+完成 Secret Key 准备后，产品创建、价格创建、图片上传、webhook endpoint 创建、webhook signing key 同步、测试 checkout、签名模拟 webhook、真实支付验收提示等操作都应由 agent 通过 `clink-integ-cli` 自动执行。
 
 因此官网需要更新 AI 自动接入提示词，Developers 页面需要更新 Integration Skills 的 GitHub 跳转内容，让用户从一开始就进入“skill + CLI 自动化”的新流程。
 
 ## 2. 一句话目标
 
-让开发者把“接入 ClinkBill sandbox 支付”交给 AI 后，只需要完成登录或复制 Secret Key 这一个人工步骤，其余接入工作由 AI 使用 `clink-dev-cli` 和 `clink-integ-skills` 自动完成；对于 Elements 嵌入式支付，AI 还应根据客户网站颜色和设计 token 自动匹配支付组件风格。
+让开发者把“接入 ClinkBill sandbox 支付”交给 AI 后，只需要完成登录或复制 Secret Key 这一个人工步骤，其余接入工作由 AI 使用 `clink-integ-cli` 和 `clink-integ-skills` 自动完成；对于 Elements 嵌入式支付，AI 还应根据客户网站颜色和设计 token 自动匹配支付组件风格。
 
 ## 3. 用户与场景
 
@@ -49,7 +49,7 @@ ClinkBill 已经具备面向 AI agent 的 `clink-dev-cli` 和 `clink-integ-skill
 官网 AI 接入区块应给用户一个清晰承诺：
 
 ```text
-只需登录或复制一次 sandbox Secret Key，AI 将使用 ClinkBill Integration Skill 和 clink-dev-cli 自动完成产品导入、checkout/subscription 接入、webhook 配置、signing key 同步和 sandbox 验收。
+只需登录或复制一次 sandbox Secret Key，AI 将使用 ClinkBill Integration Skill 和 clink-integ-cli 自动完成产品导入、checkout/subscription 接入、webhook 配置、signing key 同步和 sandbox 验收。
 ```
 
 用户点击或复制提示词后，agent 应先安装或读取官方 Integration Skill，然后按 skill 指令执行项目侦察、Secret Key 配置、商品发现、catalog 导入、webhook 自动配置和验收。
@@ -58,7 +58,7 @@ ClinkBill 已经具备面向 AI agent 的 `clink-dev-cli` 和 `clink-integ-skill
 
 当 agent 运行在本地桌面环境且可以打开浏览器时：
 
-1. 安装或确认最新 `clink-dev-cli`。
+1. 安装或确认最新 `clink-integ-cli`。
 2. 运行 `clink login`。
 3. 用户在打开的 Dashboard 页面手动登录。
 4. agent 运行：
@@ -191,7 +191,7 @@ https://github.com/clinkbillcom/clink-integ-skills
 
 然后使用该 skill 帮我把 ClinkBill sandbox 支付接入当前项目。
 
-目标：除我登录 Dashboard 或提供 CLINK_SECRET_KEY 外，其余步骤尽量全自动完成。请自动识别项目架构和付费商品，生成 clink-catalog.json，使用 clink-dev-cli 导入产品/价格/图片，创建 checkout 或 subscription 接口，自动创建 webhook endpoint，同步 CLINK_WEBHOOK_SIGNING_KEY，完成签名模拟 webhook 和真实 sandbox checkout 验收指引。
+目标：除我登录 Dashboard 或提供 CLINK_SECRET_KEY 外，其余步骤尽量全自动完成。请自动识别项目架构和付费商品，生成 clink-catalog.json，使用 clink-integ-cli 导入产品/价格/图片，创建 checkout 或 subscription 接口，自动创建 webhook endpoint，同步 CLINK_WEBHOOK_SIGNING_KEY，完成签名模拟 webhook 和真实 sandbox checkout 验收指引。
 
 如果是本地桌面环境，可以运行 clink login 并让我在浏览器里登录；如果是云端、低代码或无浏览器环境，请只向我索取 CLINK_SECRET_KEY，不要让我手动提供 webhook signing key。
 
@@ -201,7 +201,7 @@ https://github.com/clinkbillcom/clink-integ-skills
 官网还应提供两个辅助链接：
 
 - 详细 skill 仓库：`https://github.com/clinkbillcom/clink-integ-skills`
-- CLI 使用文档：指向 `clink-dev-cli` 官方仓库中的 usage 文档
+- CLI 使用文档：指向 `clink-integ-cli` 官方仓库中的 usage 文档
 
 ## 8. Developers 页面 Integration Skills 更新要求
 
@@ -210,10 +210,10 @@ Developers 页面应新增或更新 “AI Integration Skills” 卡片。
 建议卡片内容：
 
 - 标题：`AI Integration Skills`
-- 描述：`Use ClinkBill skills and clink-dev-cli to let coding agents import products, configure webhooks, integrate checkout/subscriptions, and verify sandbox payments with only one human Secret Key step.`
+- 描述：`Use ClinkBill skills and clink-integ-cli to let coding agents import products, configure webhooks, integrate checkout/subscriptions, and verify sandbox payments with only one human Secret Key step.`
 - 主按钮：`Open GitHub`
 - 跳转目标：`https://github.com/clinkbillcom/clink-integ-skills`
-- 次级链接：`clink-dev-cli docs`
+- 次级链接：`clink-integ-cli docs`
 
 卡片应明确：
 
@@ -240,7 +240,7 @@ README 必须包含：
 - 自动化能力清单：catalog、image upload、checkout、subscription、webhook endpoint、signing key sync、smoke-test、real payment checklist。
 - Elements 专区：嵌入式支付、服务端 session、前端安全参数、风格自动匹配。
 - 安全规则：不得把 Secret Key 或 webhook signing key 写入前端、公开仓库、日志或最终回复。
-- 与 `clink-dev-cli` 文档的链接。
+- 与 `clink-integ-cli` 文档的链接。
 
 ## 10. 成功指标
 

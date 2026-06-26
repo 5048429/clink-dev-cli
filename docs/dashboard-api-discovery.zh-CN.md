@@ -14,7 +14,7 @@ https://uat-dashboard.clinkbill.com/prod-api
 
 Dashboard 前端再从 `/prod-api` 转发到后端服务。接口认证主要依赖 Dashboard 登录后的 `Authorization: Bearer <access_token>`，并附带 `ClientID` 和语言头。未在前端请求封装中看到 CSRF 头或公开 API key 认证。
 
-这意味着它们可以支持产品调研和 MVP 验证，但不建议让 `clink-dev-cli` 直接依赖这些 Dashboard 内部接口。更适合作为后端正式 UAT key API 设计的参考。
+这意味着它们可以支持产品调研和 MVP 验证，但不建议让 `clink-integ-cli` 直接依赖这些 Dashboard 内部接口。更适合作为后端正式 UAT key API 设计的参考。
 
 ## 调研方式和边界
 
@@ -471,7 +471,7 @@ GET /prod-api/platform/merchant/{merchantId}
       "webhookKeyId": "whk_<redacted>",
       "merchantId": "mcht_<redacted>",
       "endpoint": "https://example.com/api/clink/webhook",
-      "remark": "Created by clink-dev-cli",
+      "remark": "Created by clink-integ-cli",
       "eventType": "order.succeeded,invoice.paid",
       "signKey": "whsec_<redacted>",
       "status": "0",
@@ -493,7 +493,7 @@ GET /prod-api/platform/merchant/{merchantId}
 ```json
 {
   "endpoint": "https://example.com/api/clink/webhook",
-  "remark": "Created by clink-dev-cli",
+  "remark": "Created by clink-integ-cli",
   "eventType": "order.succeeded,invoice.paid",
   "status": 0
 }
@@ -513,7 +513,7 @@ CLI 当前与前端保持一致：创建和更新 body 中不携带 `merchantId`
 {
   "webhookKeyId": "whk_<redacted>",
   "endpoint": "https://example.com/api/clink/webhook",
-  "remark": "Created by clink-dev-cli",
+  "remark": "Created by clink-integ-cli",
   "eventType": "order.succeeded,invoice.paid"
 }
 ```

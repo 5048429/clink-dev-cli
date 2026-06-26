@@ -1,4 +1,4 @@
-# Clink Dev CLI Requirements
+# Clink Integ CLI Requirements
 
 ## Goal
 

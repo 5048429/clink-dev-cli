@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 import { access } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,7 +19,7 @@ for (const file of requiredFiles) {
 if (missing.length > 0) {
   console.error(
     [
-      "clink-dev-cli is missing committed build output:",
+      "clink-integ-cli is missing committed build output:",
       ...missing.map((file) => `  - ${file}`),
       "",
       "Run `npm run build` before packaging or installing this GitHub dependency.",

@@ -1,4 +1,4 @@
-# clink-dev-cli
+# clink-integ-cli
 
 Merchant developer CLI for ClinkBill integrations.
 
@@ -16,24 +16,29 @@ This CLI is designed for AI-assisted and Dashboard-light integration workflows. 
 For coding agents, sandboxes, CI, and low-code runtimes, install the CLI into a project-local tools directory. This avoids global npm permission issues and stale global directory file locks:
 
 ```bash
-npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+npm install --prefix ./.clink-tools github:5048429/clink-integ-cli
 ./.clink-tools/node_modules/.bin/clink --help
+./.clink-tools/node_modules/.bin/clink-integ --help
 ```
 
 On Windows PowerShell, the local binary path is:
 
 ```powershell
 .\.clink-tools\node_modules\.bin\clink.cmd --help
+.\.clink-tools\node_modules\.bin\clink-integ.cmd --help
 ```
 
 Global install is still fine for a developer machine where global npm installs are known to work:
 
 ```bash
-npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+npm install -g --install-links=true github:5048429/clink-integ-cli
 clink --help
+clink-integ --help
 ```
 
 The `--install-links=true` flag avoids broken global junctions that some npm versions create for Git dependencies on Windows.
+
+GitHub installs expose the package as `clink-integ-cli` and install the `clink`, `clink-integ`, and backward-compatible `clink-dev` binaries.
 
 Git URL installs use the committed `dist/` package output and do not require the target project to compile TypeScript or install Node type declarations. The install-time `prepare` hook only verifies that `dist/` is present.
 
@@ -78,7 +83,7 @@ clink --env staging auth status
 clink env remove staging
 ```
 
-Custom environments are stored in `~/.clink-dev-cli/config.json` under `environments`. Built-in names cannot be removed, and overriding a built-in name requires `--force`. The active environment is selected with `--env <name>`, the `CLINK_ENV` variable, or the saved profile; `--base-url` and `CLINK_BASE_URL` still override the resolved API base URL for one-off use.
+Custom environments are stored in `~/.clink-integ-cli/config.json` under `environments`. Built-in names cannot be removed, and overriding a built-in name requires `--force`. The active environment is selected with `--env <name>`, the `CLINK_ENV` variable, or the saved profile; `--base-url` and `CLINK_BASE_URL` still override the resolved API base URL for one-off use.
 
 ### Sandbox Without Browser
 

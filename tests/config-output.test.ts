@@ -1,4 +1,4 @@
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,6 +68,34 @@ describe("config resolution", () => {
       apiKey: "test_literal_override",
       apiKeySource: "literal",
       outputMode: "pretty",
+    });
+  });
+
+  it("falls back to the legacy clink-dev-cli config path during rename migration", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("HOME", tempDir);
+    vi.stubEnv("USERPROFILE", tempDir);
+    vi.stubEnv("PROFILE_API_KEY", "test_api_key_profile_abcdef");
+
+    const legacyConfig = join(tempDir, ".clink-dev-cli", "config.json");
+    await mkdir(join(tempDir, ".clink-dev-cli"), { recursive: true });
+    await writeFile(legacyConfig, `${JSON.stringify({
+      defaultProfile: "default",
+      profiles: {
+        default: {
+          environment: "sandbox",
+          apiKeyEnv: "PROFILE_API_KEY",
+        },
+      },
+    }, null, 2)}\n`, "utf8");
+
+    const config = await resolveRuntimeConfig({});
+
+    expect(getConfigPath()).toBe(join(tempDir, ".clink-integ-cli", "config.json"));
+    expect(config).toMatchObject({
+      environment: "sandbox",
+      apiKey: "test_api_key_profile_abcdef",
+      apiKeySource: "env:PROFILE_API_KEY",
     });
   });
 });

@@ -1,4 +1,4 @@
-# Clink Dev CLI 最小 MVP API 契约：AI 生成 UAT Secret Key 并接入支付
+# Clink Integ CLI 最小 MVP API 契约：AI 生成 UAT Secret Key 并接入支付
 
 ## 1. 目标闭环
 
@@ -62,7 +62,7 @@ Content-Type: application/json
 
 ### 2.3 Dashboard cookie 的限制
 
-Dashboard cookie 或浏览器登录态可以作为早期调研、手动验证或换取 Console access token 的输入，但不能作为 `clink-dev-cli` 的正式长期认证方案。
+Dashboard cookie 或浏览器登录态可以作为早期调研、手动验证或换取 Console access token 的输入，但不能作为 `clink-integ-cli` 的正式长期认证方案。
 
 原因：
 
@@ -183,7 +183,7 @@ Content-Type: application/json
   "name": "codex-local-test",
   "agent": "codex",
   "runId": "run_20260617_001",
-  "projectPath": "D:/Clink_intern/AutoCliSurvey/clink-dev-cli",
+  "projectPath": "D:/Clink_intern/AutoCliSurvey/clink-integ-cli",
   "expiresInSeconds": 604800
 }
 ```
@@ -513,7 +513,7 @@ MVP 不要求完整审计后台，只要求这些字段能被日志检索。
 - AI 可以调用 `POST /uat/secret-keys/{keyId}/revoke` 撤销这个 UAT secret key。
 - 撤销或过期后的 key 不能继续调用 `POST /checkout/session`。
 
-完成后，Clink Dev CLI 的最短路径是：
+完成后，Clink Integ CLI 的最短路径是：
 
 ```text
 AI 查询身份 -> AI 创建 UAT key -> AI 调 checkout/session -> AI 拿到 checkout URL -> 用户测试支付页

@@ -3,7 +3,6 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { BASE_URLS, DEFAULT_PROFILE } from "./constants.js";
 import { getEnvironmentDefinition, resolveDashboardEndpoints } from "./environments.js";
-const DEFAULT_CONFIG_PATH = join(homedir(), ".clink-dev-cli", "config.json");
 function emptyConfig() {
     return {
         defaultProfile: DEFAULT_PROFILE,
@@ -11,7 +10,7 @@ function emptyConfig() {
     };
 }
 export function getConfigPath() {
-    return process.env.CLINK_CONFIG_PATH || DEFAULT_CONFIG_PATH;
+    return process.env.CLINK_CONFIG_PATH || defaultConfigPath();
 }
 export async function readStoredConfig() {
     try {
@@ -25,10 +24,36 @@ export async function readStoredConfig() {
     }
     catch (error) {
         if (error.code === "ENOENT") {
+            if (!process.env.CLINK_CONFIG_PATH) {
+                return readLegacyStoredConfig();
+            }
             return emptyConfig();
         }
         throw error;
     }
+}
+async function readLegacyStoredConfig() {
+    try {
+        const raw = await readFile(legacyConfigPath(), "utf8");
+        const parsed = JSON.parse(raw);
+        return {
+            defaultProfile: parsed.defaultProfile ?? DEFAULT_PROFILE,
+            profiles: parsed.profiles ?? {},
+            environments: parsed.environments ?? {},
+        };
+    }
+    catch (error) {
+        if (error.code === "ENOENT") {
+            return emptyConfig();
+        }
+        throw error;
+    }
+}
+function defaultConfigPath() {
+    return join(homedir(), ".clink-integ-cli", "config.json");
+}
+function legacyConfigPath() {
+    return join(homedir(), ".clink-dev-cli", "config.json");
 }
 export async function writeStoredConfig(config) {
     const configPath = getConfigPath();

@@ -45,7 +45,7 @@ clink setup uat --project . --run-smoke-test --json
 
 ## 4. 当前 CLI 已经做到什么
 
-当前 `clink-dev-cli` 已经验证了“登录之后，其余很多 Dashboard 操作可以交给 AI”。
+当前 `clink-integ-cli` 已经验证了“登录之后，其余很多 Dashboard 操作可以交给 AI”。
 
 | 能力 | 当前状态 | 仍然缺什么 |
 | --- | --- | --- |
@@ -133,7 +133,7 @@ clink setup uat --project . --run-smoke-test --json
 ```text
 帮我把 ClinkBill 支付接入到当前项目。
 
-你可以使用 clink-dev-cli 和 Clink UAT Agent API。
+你可以使用 clink-integ-cli 和 Clink UAT Agent API。
 
 请完成：
 1. 识别当前项目语言、框架和环境变量方式

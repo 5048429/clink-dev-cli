@@ -1,13 +1,13 @@
-# Agent 使用 Clink Dev CLI 接入说明
+# Agent 使用 Clink Integ CLI 接入说明
 
-完整 CLI 命令和能力说明见 [clink-dev-cli 使用文档](cli-usage.zh-CN.md)。本文件只保留 agent 安装和执行策略。
+完整 CLI 命令和能力说明见 [clink-integ-cli 使用文档](cli-usage.zh-CN.md)。本文件只保留 agent 安装和执行策略。
 
 目标：让接入 ClinkBill 的 agent 不需要手动 clone 本仓库，也不需要运行 `node dist/index.js`，而是自己安装 `clink` 命令并用它完成密钥、checkout、webhook 和本地验证。
 
 ## 前置要求
 
 - Node.js 20 或更高版本
-- 可以访问公司 GitLab
+- 可以访问 GitHub
 - 可以运行 `npm install`
 
 ## 推荐安装方式
@@ -15,7 +15,7 @@
 Agent、沙箱、低代码平台、CI 环境默认使用项目内隔离安装，避免全局 npm 目录权限、旧版本残留或文件锁影响接入：
 
 ```bash
-npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+npm install --prefix ./.clink-tools github:5048429/clink-integ-cli
 ./.clink-tools/node_modules/.bin/clink --version
 ./.clink-tools/node_modules/.bin/clink --help
 ```
@@ -30,7 +30,7 @@ Windows PowerShell 本地路径：
 开发者自己的机器如果确认全局 npm 可用，也可以全局安装：
 
 ```bash
-npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+npm install -g --install-links=true github:5048429/clink-integ-cli
 clink --version
 clink --help
 ```
@@ -112,10 +112,10 @@ clink init --framework fastapi --out ./clink-demo --force --json
 ## 可直接放进接入提示词的片段
 
 ```text
-你需要先安装 Clink Dev CLI。不要使用 node dist/index.js。
+你需要先安装 Clink Integ CLI。不要使用 node dist/index.js。
 
 默认安装到项目本地，避免全局 npm 目录权限或文件锁问题：
-  npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+  npm install --prefix ./.clink-tools github:5048429/clink-integ-cli
 
 Linux/macOS 使用：
   ./.clink-tools/node_modules/.bin/clink --version
@@ -124,13 +124,13 @@ Windows PowerShell 使用：
   .\.clink-tools\node_modules\.bin\clink.cmd --version
 
 如果你确认当前机器全局 npm 可用，也可以全局安装：
-  npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+  npm install -g --install-links=true github:5048429/clink-integ-cli
   clink --version
 
 Git URL 安装应使用仓库内已提交的 dist 产物；不要因为缺少 Node 类型声明就在业务项目里补 TypeScript 构建依赖。即使看到 prepare，它也只应校验 dist，不应编译 TypeScript。
 
 如果本地安装失败，请说明脱敏错误并重试一次：
-  npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+  npm install --prefix ./.clink-tools github:5048429/clink-integ-cli
 
 本地安装后，Linux/macOS 使用：
   ./.clink-tools/node_modules/.bin/clink
@@ -148,4 +148,3 @@ Windows PowerShell 使用：
 
 所有涉及 Secret Key、Dashboard token、webhook signing key 的输出都必须打码，不要写入源码。
 ```
-

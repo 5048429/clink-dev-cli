@@ -92,7 +92,7 @@ type CatalogValidation = {
 
 type CatalogMapping = {
   version: 1;
-  generatedBy: "clink-dev-cli";
+  generatedBy: "clink-integ-cli";
   updatedAt?: string;
   products: Record<string, CatalogMappedProduct>;
   assets?: Record<string, CatalogMappedAsset>;
@@ -521,7 +521,7 @@ async function readCatalogMapping(filePath: string): Promise<CatalogMapping> {
     const parsed = JSON.parse(stripJsonBom(await readFile(filePath, "utf8"))) as Partial<CatalogMapping>;
     return {
       version: 1,
-      generatedBy: "clink-dev-cli",
+      generatedBy: "clink-integ-cli",
       updatedAt: parsed.updatedAt,
       products: parsed.products ?? {},
       assets: parsed.assets ?? {},
@@ -542,7 +542,7 @@ async function writeCatalogMapping(filePath: string, mapping: CatalogMapping): P
 function emptyMapping(): CatalogMapping {
   return {
     version: 1,
-    generatedBy: "clink-dev-cli",
+    generatedBy: "clink-integ-cli",
     products: {},
     assets: {},
   };

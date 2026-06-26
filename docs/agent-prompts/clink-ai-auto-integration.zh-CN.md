@@ -12,7 +12,7 @@
 
 - https://github.com/clinkbillcom/clink-integ-skills
 - https://docs.clinkbill.com/api-reference/introduction
-- https://gitlab.clinkpay.team/clink/acp/clink-dev-cli
+- https://github.com/5048429/clink-integ-cli
 
 如果资料中字段与本提示词不一致，以官方文档和当前 CLI 输出为准，并在最终回复中说明差异。
 
@@ -23,7 +23,7 @@
 Agent 默认使用项目内隔离安装，避免全局 npm 目录权限、旧版本残留或文件锁问题：
 
 ```bash
-npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+npm install --prefix ./.clink-tools github:5048429/clink-integ-cli
 ```
 
 本地安装后：
@@ -36,7 +36,7 @@ npm install --prefix ./.clink-tools git+ssh://git@gitlab.clinkpay.team/clink/acp
 如果你确认当前机器全局 npm 可用，也可以全局安装：
 
 ```bash
-npm install -g --install-links=true git+ssh://git@gitlab.clinkpay.team/clink/acp/clink-dev-cli.git
+npm install -g --install-links=true github:5048429/clink-integ-cli
 ```
 
 全局安装必须带 `--install-links=true`，用于规避部分 npm/Windows 环境对 Git 依赖生成失效 junction 的问题。

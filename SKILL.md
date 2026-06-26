@@ -1,9 +1,9 @@
 ---
-name: clink-dev-cli
+name: clink-integ-cli
 description: Use this skill when developing, testing, or extending the ClinkBill merchant developer CLI for checkout, subscriptions, products, prices, webhooks, doctor checks, and AI-friendly integration workflows.
 ---
 
-# clink-dev-cli
+# clink-integ-cli
 
 This repository builds a merchant developer CLI for ClinkBill integrations.
 
@@ -59,4 +59,3 @@ For new command work:
 4. Add dry-run support for API writes through the shared client.
 5. Update README examples.
 6. Update docs if the command changes project workflow.
-
