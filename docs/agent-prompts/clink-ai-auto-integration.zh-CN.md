@@ -71,7 +71,7 @@ clink webhook endpoint ensure \
   --json
 ```
 
-`--events core` 使用 6 个常用事件名而不是 Dashboard 数字 code。`--events all` 会订阅当前公开 Secret Key API 支持的全部 38 个事件名；只有确实需要争议、支付方式、风控或 agent refund/order 等扩展事件时才使用。`--save-secret` 会把 signing key 保存到 CLI profile；需要写入外部平台 Secret 时才使用 `--show-secret` 读取明文。
+`--events core` 使用 6 个常用事件名而不是 Dashboard 数字 code。`--events all` 会订阅当前公开 Secret Key API 支持的全部 44 个事件名；只有确实需要争议、支付方式、风控、purchase instruction、VIC device 或 agent refund/order 等扩展事件时才使用。`--save-secret` 会把 signing key 保存到 CLI profile；需要写入外部平台 Secret 时才使用 `--show-secret` 读取明文。
 
 如果普通安装拿到的 CLI 过旧，不支持 `auth secret set`，请重新安装/更新最新 CLI 后再继续。不要因为旧 CLI 缺少能力就直接把 webhook 配置交给用户。
 
@@ -514,7 +514,7 @@ clink webhook endpoint ensure \
 - `subscription.created`
 - `invoice.paid`
 
-如需订阅完整 webhook 目录，使用 `--events all`；它会展开为公开 Secret Key API 当前支持的 38 个事件名。
+如需订阅完整 webhook 目录，使用 `--events all`；它会展开为公开 Secret Key API 当前支持的 44 个事件名。
 
 重要：无论使用已有域名还是 cloudflared tunnel，每次 webhook URL 变化后，都要重新运行 `clink webhook endpoint ensure --save-secret --json`。运行后必须同步最新 webhook signing key 到 `.env`、平台 Secret 或服务端环境变量，并重启/重新部署服务。
 

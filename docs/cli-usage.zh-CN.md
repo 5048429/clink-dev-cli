@@ -398,7 +398,7 @@ Endpoint URL 必须是公网 HTTPS，不能使用 localhost、loopback、private
 事件参数说明：
 
 - `--events core`：默认推荐，展开为 `session.complete`、`order.succeeded`、`order.failed`、`refund.succeeded`、`subscription.created`、`invoice.paid`。
-- `--events all`：展开为当前 Secret Key API 支持的完整 38 个事件名。
+- `--events all`：展开为当前 Secret Key API 支持的完整 44 个事件名。
 - 自定义事件列表：使用逗号分隔的事件名，例如 `order.succeeded,invoice.paid`。
 
 公开 API 请求体使用事件名，不使用 Dashboard 数字 event code。

@@ -45,6 +45,12 @@ const WEBHOOK_EVENT_CATALOG = [
     { name: "agent_refund.failed", code: 36, description: "Agent refund failed" },
     { name: "agent_refund.approved", code: 37, description: "Agent refund approved" },
     { name: "agent_refund.rejected", code: 38, description: "Agent refund rejected" },
+    { name: "payment_method.update", code: 39, description: "Payment method updated" },
+    { name: "purchase_instruction.created", code: 40, description: "Purchase instruction created" },
+    { name: "purchase_instruction.activated", code: 41, description: "Purchase instruction activated" },
+    { name: "purchase_instruction.updated", code: 42, description: "Purchase instruction updated" },
+    { name: "purchase_instruction.cancelled", code: 43, description: "Purchase instruction cancelled" },
+    { name: "vic_device.binding_succeeded", code: 44, description: "VIC device binding succeeded" },
 ];
 const WEBHOOK_ALL_EVENTS = WEBHOOK_EVENT_CATALOG.map((event) => event.name);
 const WEBHOOK_CORE_EVENTS = [

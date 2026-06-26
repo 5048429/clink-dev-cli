@@ -216,13 +216,16 @@ describe("Secret Key API commands", () => {
       fallbackSupportedEvents: Array<{ name: string; code: number; description: string }>;
       fallbackAliases: { all: string[]; core: string[] };
     };
-    expect(output.fallbackSupportedEvents).toHaveLength(38);
+    expect(output.fallbackSupportedEvents).toHaveLength(44);
     expect(output.fallbackSupportedEvents).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: "order.created", code: 1 }),
       expect.objectContaining({ name: "session.complete", code: 22 }),
       expect.objectContaining({ name: "agent_refund.rejected", code: 38 }),
+      expect.objectContaining({ name: "payment_method.update", code: 39 }),
+      expect.objectContaining({ name: "purchase_instruction.cancelled", code: 43 }),
+      expect.objectContaining({ name: "vic_device.binding_succeeded", code: 44 }),
     ]));
-    expect(output.fallbackAliases.all).toHaveLength(38);
+    expect(output.fallbackAliases.all).toHaveLength(44);
     expect(output.fallbackAliases.core).toEqual([
       "session.complete",
       "order.succeeded",
@@ -251,7 +254,7 @@ describe("Secret Key API commands", () => {
     const output = JSON.parse(result.stdout) as {
       result: { request: { body: { events: string[] } } };
     };
-    expect(output.result.request.body.events).toHaveLength(38);
+    expect(output.result.request.body.events).toHaveLength(44);
     expect(output.result.request.body.events).toEqual(expect.arrayContaining([
       "order.created",
       "session.expired",
@@ -259,6 +262,12 @@ describe("Secret Key API commands", () => {
       "customer.verify",
       "payment_method.default_change",
       "agent_refund.rejected",
+      "payment_method.update",
+      "purchase_instruction.created",
+      "purchase_instruction.activated",
+      "purchase_instruction.updated",
+      "purchase_instruction.cancelled",
+      "vic_device.binding_succeeded",
     ]));
   });
 
@@ -272,7 +281,7 @@ describe("Secret Key API commands", () => {
       "--url",
       "https://example.com/api/clink/webhook",
       "--events",
-      "dispute.won,customer.verify,agent_refund.approved",
+      "payment_method.update,purchase_instruction.cancelled,vic_device.binding_succeeded",
     ]);
 
     expect(result.status).toBe(0);
@@ -281,9 +290,9 @@ describe("Secret Key API commands", () => {
       result: { request: { body: { events: string[] } } };
     };
     expect(output.result.request.body.events).toEqual([
-      "dispute.won",
-      "customer.verify",
-      "agent_refund.approved",
+      "payment_method.update",
+      "purchase_instruction.cancelled",
+      "vic_device.binding_succeeded",
     ]);
   });
 

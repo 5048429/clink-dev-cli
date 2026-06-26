@@ -517,7 +517,7 @@ describe("Dashboard merchant and webhook helpers", () => {
     expect(result.stderr).not.toContain(rawToken);
     const output = JSON.parse(result.stdout) as { result: { request: { body: Record<string, unknown> } } };
     const events = output.result.request.body.events as string[];
-    expect(events).toHaveLength(38);
+    expect(events).toHaveLength(44);
     expect(events).toEqual(expect.arrayContaining([
       "order.created",
       "session.complete",
@@ -526,6 +526,9 @@ describe("Dashboard merchant and webhook helpers", () => {
       "customer.verify",
       "payment_method.added",
       "agent_refund.rejected",
+      "payment_method.update",
+      "purchase_instruction.cancelled",
+      "vic_device.binding_succeeded",
     ]));
   });
 });
